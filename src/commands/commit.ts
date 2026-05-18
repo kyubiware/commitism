@@ -4,7 +4,7 @@ import { assertGitRepo, getStagedDiff, stageAll, getHead, attemptCommit, attempt
 import { parseHookErrors } from "../services/hooks.js";
 import { showRecoveryMenu } from "../ui/menu.js";
 import { saveCachedCommit, loadCachedCommit } from "../utils/cache.js";
-import { getApiKey, readConfig } from "../services/config.js";
+import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
 
 interface CommitFlags {
 	retry: boolean;
@@ -69,7 +69,6 @@ export async function commitCommand(flags: CommitFlags) {
 		process.exit(1);
 	}
 
-	s.start("Files staged:");
 	console.log(diff.files.map((f) => `     ${f}`).join("\n"));
 
 	// Generate or use provided message
@@ -77,10 +76,32 @@ export async function commitCommand(flags: CommitFlags) {
 
 	if (flags.message) {
 		message = flags.message;
-		s.stop("Using provided message");
 	} else {
+		// Ensure API key is available before generating
+		try {
+			await getApiKey();
+		} catch {
+			const { text: promptText } = await import("@clack/prompts");
+			const key = await promptText({
+				message: "Enter your Groq API key:",
+				placeholder: "gsk_...",
+				validate: (v: string) => (v.trim() ? undefined : "API key is required"),
+			});
+			if (isCancel(key)) {
+				outro(dim("Cancelled."));
+				return;
+			}
+			await setConfigValue("GROQ_API_KEY", String(key).trim());
+		}
+
 		s.start("Generating commit message...");
-		message = await generateMessage(diff.diff, diff.files);
+		try {
+			message = await generateMessage(diff.diff, diff.files);
+		} catch (err) {
+			s.stop(red("Failed to generate message."));
+			outro(red(err instanceof Error ? err.message : String(err)));
+			return;
+		}
 		s.stop("Message generated");
 	}
 
