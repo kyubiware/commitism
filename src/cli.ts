@@ -28,6 +28,11 @@ cli(
 				description: "Provide a commit message directly (skip AI generation)",
 				alias: "m",
 			},
+			hint: {
+				type: String,
+				description: "Add context hint for AI commit message generation",
+				alias: "H",
+			},
 		},
 		commands: [configCommand],
 	},

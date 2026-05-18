@@ -10,6 +10,7 @@ interface CommitFlags {
 	retry: boolean;
 	all: boolean;
 	message?: string;
+	hint?: string;
 }
 
 export async function commitCommand(flags: CommitFlags) {
