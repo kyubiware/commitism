@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { cli, command } from "cleye";
 import pkg from "../package.json" with { type: "json" };
+
 const { version } = pkg;
+
 import { commitCommand } from "./commands/commit.js";
 import { configCommand } from "./commands/config.js";
 

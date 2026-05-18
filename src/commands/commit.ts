@@ -1,11 +1,19 @@
-import { intro, outro, spinner, isCancel } from "@clack/prompts";
-import { green, red, dim, bold } from "kolorist";
-import { assertGitRepo, getStagedDiff, stageAll, getHead, attemptCommit, attemptCommitNoVerify, getStatusShort } from "../services/git.js";
+import { intro, isCancel, log, outro, spinner } from "@clack/prompts";
+import { bold, dim, green, red } from "kolorist";
+import { generateCommitMessage } from "../services/ai.js";
+import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
+import {
+	assertGitRepo,
+	attemptCommit,
+	attemptCommitNoVerify,
+	getHead,
+	getStagedDiff,
+	getStatusShort,
+	stageAll,
+} from "../services/git.js";
 import { parseHookErrors } from "../services/hooks.js";
 import { showRecoveryMenu } from "../ui/menu.js";
-import { saveCachedCommit, loadCachedCommit } from "../utils/cache.js";
-import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
-import { generateCommitMessage } from "../services/ai.js";
+import { loadCachedCommit, saveCachedCommit } from "../utils/cache.js";
 
 interface CommitFlags {
 	retry: boolean;
@@ -71,7 +79,7 @@ export async function commitCommand(flags: CommitFlags) {
 		process.exit(1);
 	}
 
-	console.log(diff.files.map((f) => `     ${f}`).join("\n"));
+	log.info(diff.files.map((f) => `     ${f}`).join("\n"));
 
 	// Generate or use provided message
 	let message: string;

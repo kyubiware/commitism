@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { commitCommand } from "./commit.js";
 
 // Mock all external dependencies
 vi.mock("@clack/prompts", () => ({
 	intro: vi.fn(),
 	outro: vi.fn(),
+	log: { info: vi.fn() },
 	spinner: vi.fn(() => ({
 		start: vi.fn(),
 		stop: vi.fn(),
@@ -48,10 +49,16 @@ vi.mock("../services/ai.js", () => ({
 	generateCommitMessage: vi.fn(),
 }));
 
-import { getStagedDiff, stageAll, getStatusShort, attemptCommit, getHead } from "../services/git.js";
-import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
 import { text } from "@clack/prompts";
 import { generateCommitMessage } from "../services/ai.js";
+import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
+import {
+	attemptCommit,
+	getHead,
+	getStagedDiff,
+	getStatusShort,
+	stageAll,
+} from "../services/git.js";
 
 describe("commitCommand", () => {
 	beforeEach(() => {
@@ -66,7 +73,9 @@ describe("commitCommand", () => {
 			diff: "some diff",
 		});
 		vi.mocked(getApiKey).mockRejectedValue(
-			new Error("Please set your Groq API key via `commitism config set GROQ_API_KEY=<your token>`"),
+			new Error(
+				"Please set your Groq API key via `commitism config set GROQ_API_KEY=<your token>`",
+			),
 		);
 
 		// Should NOT throw — errors should be caught and handled gracefully
@@ -151,8 +160,6 @@ describe("commitCommand", () => {
 		await expect(commitCommand({ retry: false, all: false })).resolves.not.toThrow();
 
 		const { outro } = await import("@clack/prompts");
-		expect(vi.mocked(outro)).toHaveBeenCalledWith(
-			expect.stringContaining("rate limit"),
-		);
+		expect(vi.mocked(outro)).toHaveBeenCalledWith(expect.stringContaining("rate limit"));
 	});
 });
