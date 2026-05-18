@@ -44,9 +44,14 @@ vi.mock("../services/config.js", () => ({
 	setConfigValue: vi.fn(),
 }));
 
+vi.mock("../services/ai.js", () => ({
+	generateCommitMessage: vi.fn(),
+}));
+
 import { getStagedDiff, stageAll, getStatusShort, attemptCommit, getHead } from "../services/git.js";
-import { getApiKey, setConfigValue } from "../services/config.js";
+import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
 import { text } from "@clack/prompts";
+import { generateCommitMessage } from "../services/ai.js";
 
 describe("commitCommand", () => {
 	beforeEach(() => {
@@ -95,5 +100,59 @@ describe("commitCommand", () => {
 
 		// Should have saved the key to config
 		expect(setConfigValue).toHaveBeenCalledWith("GROQ_API_KEY", "gsk_test_key_123");
+	});
+
+	it("calls generateCommitMessage with correct options from config and flags", async () => {
+		vi.mocked(getStatusShort).mockResolvedValue("M  src/foo.ts");
+		vi.mocked(stageAll).mockResolvedValue(undefined);
+		vi.mocked(getStagedDiff).mockResolvedValue({
+			files: ["src/foo.ts"],
+			diff: "some diff content",
+		});
+		vi.mocked(getApiKey).mockResolvedValue("gsk_test_key");
+		vi.mocked(readConfig).mockResolvedValue({
+			model: "openai/gpt-oss-20b",
+			"max-length": "100",
+			type: "feat",
+			timeout: "30000",
+			locale: "en",
+		});
+		vi.mocked(generateCommitMessage).mockResolvedValue("feat: test commit");
+		vi.mocked(attemptCommit).mockResolvedValue({ ok: true });
+		vi.mocked(getHead).mockResolvedValueOnce("abc123").mockResolvedValueOnce("def456");
+
+		await commitCommand({ retry: false, all: false, hint: "refactor auth" });
+
+		expect(generateCommitMessage).toHaveBeenCalledWith("some diff content", {
+			apiKey: "gsk_test_key",
+			model: "openai/gpt-oss-20b",
+			maxLength: 100,
+			type: "feat",
+			timeout: 30000,
+			hint: "refactor auth",
+		});
+	});
+
+	it("catches and displays errors from generateCommitMessage gracefully", async () => {
+		vi.mocked(getStatusShort).mockResolvedValue("M  src/foo.ts");
+		vi.mocked(stageAll).mockResolvedValue(undefined);
+		vi.mocked(getStagedDiff).mockResolvedValue({
+			files: ["src/foo.ts"],
+			diff: "some diff",
+		});
+		vi.mocked(getApiKey).mockResolvedValue("gsk_test_key");
+		vi.mocked(readConfig).mockResolvedValue({
+			model: "openai/gpt-oss-20b",
+			"max-length": "100",
+			locale: "en",
+		});
+		vi.mocked(generateCommitMessage).mockRejectedValue(new Error("Groq API error: rate limit"));
+
+		await expect(commitCommand({ retry: false, all: false })).resolves.not.toThrow();
+
+		const { outro } = await import("@clack/prompts");
+		expect(vi.mocked(outro)).toHaveBeenCalledWith(
+			expect.stringContaining("rate limit"),
+		);
 	});
 });
