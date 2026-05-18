@@ -5,6 +5,7 @@ import { parseHookErrors } from "../services/hooks.js";
 import { showRecoveryMenu } from "../ui/menu.js";
 import { saveCachedCommit, loadCachedCommit } from "../utils/cache.js";
 import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
+import { generateCommitMessage } from "../services/ai.js";
 
 interface CommitFlags {
 	retry: boolean;
@@ -97,7 +98,7 @@ export async function commitCommand(flags: CommitFlags) {
 
 		s.start("Generating commit message...");
 		try {
-			message = await generateMessage(diff.diff, diff.files);
+			message = await generateMessage(diff.diff, flags.hint);
 		} catch (err) {
 			s.stop(red("Failed to generate message."));
 			outro(red(err instanceof Error ? err.message : String(err)));
@@ -175,12 +176,16 @@ export async function commitCommand(flags: CommitFlags) {
 	);
 }
 
-async function generateMessage(_diff: string, _files: string[]): Promise<string> {
-	// TODO: Implement AI message generation via Groq
-	// For now, return a placeholder
+async function generateMessage(diff: string, hint?: string): Promise<string> {
 	const config = await readConfig();
-	void config; // used in full implementation
 	const apiKey = await getApiKey();
-	void apiKey; // used in full implementation
-	return "chore: initial commit";
+
+	return generateCommitMessage(diff, {
+		apiKey,
+		model: config.model,
+		maxLength: config["max-length"] ? parseInt(config["max-length"], 10) : undefined,
+		type: config.type,
+		timeout: config.timeout ? parseInt(config.timeout, 10) : undefined,
+		hint,
+	});
 }
