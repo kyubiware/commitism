@@ -29,11 +29,11 @@
     "conventional-commits",
     "cli"
   ],
-  "author": "",
+  "author": "kyubiware",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/kyubiware/commitism.git"
   },
   "dependencies": {
     "@clack/prompts": "^0.9.1",
