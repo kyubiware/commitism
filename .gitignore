@@ -5,3 +5,4 @@ dist/
 .sisyphus/
 coverage/
 notes/
+.omo/

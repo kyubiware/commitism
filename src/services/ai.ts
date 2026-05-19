@@ -121,6 +121,21 @@ function enforceMaxLength(message: string, maxLength?: number): string {
 	return `${message.slice(0, maxLength - 3)}...`;
 }
 
+function extractContentText(
+	content: string | Array<{ type: string; text?: string }> | null | undefined,
+): string {
+	if (content == null) return "";
+	if (typeof content === "string") return content.trim();
+	if (Array.isArray(content)) {
+		return content
+			.filter((part) => part.type === "text" && typeof part.text === "string")
+			.map((part) => part.text as string)
+			.join("")
+			.trim();
+	}
+	return "";
+}
+
 export async function generateCommitMessage(
 	diff: string,
 	options: {
@@ -175,20 +190,25 @@ export async function generateCommitMessage(
 				],
 				model: options.model ?? "openai/gpt-oss-20b",
 				temperature: 0.3,
-				max_tokens: 300,
+				max_tokens: 1024,
 			});
 
 			const elapsed = Date.now() - callStart;
-			const content = completion.choices[0]?.message?.content;
+			const rawContent = completion.choices[0]?.message?.content;
+			const content = extractContentText(rawContent);
 			debug(
-				"callAI response (%d ms): choices=%d, finishReason=%s, contentLen=%d",
+				"callAI response (%d ms): choices=%d, finishReason=%s, contentLen=%d, rawType=%s",
 				elapsed,
 				completion.choices.length,
 				completion.choices[0]?.finish_reason ?? "(none)",
-				content?.length ?? 0,
+				content.length,
+				typeof rawContent,
 			);
-			debug("callAI raw content: %s", content?.slice(0, 300) ?? "(empty)");
-			return content?.trim() ?? "";
+			debug("callAI raw content: %s", content.slice(0, 300) || "(empty)");
+			if (!content) {
+				throw new Error("AI returned an empty commit message");
+			}
+			return content;
 		} catch (error) {
 			const elapsed = Date.now() - callStart;
 			debug(

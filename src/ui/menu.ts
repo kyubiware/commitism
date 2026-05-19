@@ -55,12 +55,12 @@ export async function showRecoveryMenu(
 			const report = formatErrorReport(errors);
 			const ok = await copyToClipboard(report);
 			if (ok) {
-				p.outro(green("Error report copied to clipboard."));
+				p.log.step(green("Error report copied to clipboard."));
 			} else {
-				p.outro(red("No clipboard tool found. Install xclip, wl-copy, or xsel."));
+				p.log.step(red("No clipboard tool found. Install xclip, wl-copy, or xsel."));
 			}
-			p.log.info(dim("Fix the errors, then run: cmint --retry"));
-			process.exit(0);
+			// Show menu again so user can take another action
+			await showRecoveryMenu(errors, onRetry, onSkipHooks, onRestage, message);
 			break;
 		}
 		case "skip": {

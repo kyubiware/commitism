@@ -68,6 +68,17 @@ describe("generateCommitMessage", () => {
 		expect(mockCreate).toHaveBeenCalledTimes(1);
 	});
 
+	it("sets max_tokens high enough for reasoning models", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "feat: test" } }],
+		});
+
+		await generateCommitMessage("some diff", { apiKey: "test_key" });
+
+		const callArgs = mockCreate.mock.calls[0][0];
+		expect(callArgs.max_tokens).toBeGreaterThanOrEqual(1024);
+	});
+
 	it("injects hint into user prompt content", async () => {
 		mockCreate.mockResolvedValue({
 			choices: [{ message: { content: "feat: test" } }],
@@ -213,24 +224,50 @@ describe("generateCommitMessage", () => {
 		expect(userPrompt).toContain("file29.ts | changed");
 	});
 
-	it("returns empty string when API response content is empty", async () => {
+	it("throws when API response content is empty string", async () => {
 		mockCreate.mockResolvedValue({
-			choices: [{ message: { content: "" } }],
+			choices: [{ message: { content: "" }, finish_reason: "stop" }],
 		});
 
-		const result = await generateCommitMessage("some diff", { apiKey: "test_key" });
-
-		expect(result).toBe("");
+		await expect(generateCommitMessage("some diff", { apiKey: "test_key" })).rejects.toThrow(
+			"AI returned an empty commit message",
+		);
 	});
 
-	it("returns empty string when API response content is null", async () => {
+	it("throws when API response content is null", async () => {
 		mockCreate.mockResolvedValue({
-			choices: [{ message: { content: null } }],
+			choices: [{ message: { content: null }, finish_reason: "stop" }],
+		});
+
+		await expect(generateCommitMessage("some diff", { apiKey: "test_key" })).rejects.toThrow(
+			"AI returned an empty commit message",
+		);
+	});
+
+	it("extracts text from array content format", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [
+				{
+					message: { content: [{ type: "text", text: "feat: array content" }] },
+					finish_reason: "stop",
+				},
+			],
 		});
 
 		const result = await generateCommitMessage("some diff", { apiKey: "test_key" });
 
-		expect(result).toBe("");
+		expect(result).toBe("feat: array content");
+		expect(mockCreate).toHaveBeenCalledTimes(1);
+	});
+
+	it("throws when array content has no text parts", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: [] }, finish_reason: "stop" }],
+		});
+
+		await expect(generateCommitMessage("some diff", { apiKey: "test_key" })).rejects.toThrow(
+			"AI returned an empty commit message",
+		);
 	});
 
 	it("auto-retries once when AI returns non-conventional format and second call succeeds", async () => {
