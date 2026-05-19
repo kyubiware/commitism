@@ -157,7 +157,7 @@ Zero clipboard dependency — we shell out to `xclip`/`wl-copy`/`pbcopy` based o
 
 ## Success criteria
 
-- `npm i -g commit-mint` works on macOS, Linux, WSL
+- `npm i -g @kyubiware/commit-mint` works on macOS, Linux, WSL
 - Hook failure recovery menu appears for lint-staged, biome, eslint, tsc, vitest, jest errors
 - Clipboard copy works on macOS (`pbcopy`), Linux X11 (`xclip`), Linux Wayland (`wl-copy`)
 - `--retry` restores last failed commit message

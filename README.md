@@ -24,7 +24,7 @@ stage files → generate message → attempt commit → hooks fail?
 ## Installation
 
 ```bash
-npm install -g commit-mint
+npm install -g @kyubiware/commit-mint
 ```
 
 Requires **Node.js 18+**.
