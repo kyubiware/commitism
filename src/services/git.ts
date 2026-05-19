@@ -73,7 +73,10 @@ export interface CommitResult {
 	stderr?: string;
 }
 
-export async function attemptCommit(message: string, extraArgs: string[] = []): Promise<CommitResult> {
+export async function attemptCommit(
+	message: string,
+	extraArgs: string[] = [],
+): Promise<CommitResult> {
 	try {
 		await execa("git", ["commit", "-m", message, ...extraArgs]);
 		return { ok: true };

@@ -14,9 +14,7 @@ export async function copyToClipboard(content: string): Promise<boolean> {
 			if (!stdout) continue;
 			await execa(cmd, args.length > 0 ? args : [], { input: content });
 			return true;
-		} catch {
-			continue;
-		}
+		} catch {}
 	}
 	return false;
 }

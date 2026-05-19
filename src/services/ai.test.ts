@@ -112,7 +112,7 @@ describe("generateCommitMessage", () => {
 		expect(systemPrompt).not.toContain("MUST use type:");
 	});
 
-	it("passes full diff under 40K chars without truncation", async () => {
+	it("passes full diff under 20K chars without truncation", async () => {
 		mockCreate.mockResolvedValue({
 			choices: [{ message: { content: "feat: test" } }],
 		});
@@ -124,33 +124,93 @@ describe("generateCommitMessage", () => {
 		expect(userPrompt).toContain(diff);
 	});
 
-	it("truncates lines over 256 chars when diff exceeds 40K", async () => {
+	it("strips context lines when diff exceeds 20K chars", async () => {
 		mockCreate.mockResolvedValue({
 			choices: [{ message: { content: "feat: test" } }],
 		});
 
-		const longLine = "a".repeat(300);
-		const diff = `diff --git a/file b/file\n${longLine}\n${"b".repeat(40000)}`;
+		// Build a diff >20K with many context lines (start with space) and fewer changed lines
+		// so that after stripping context, the remaining diff is <= 20K
+		const contextLines = Array.from(
+			{ length: 400 },
+			(_, i) => ` unchanged context line ${i} ${"x".repeat(60)}`,
+		);
+		const changedLines = Array.from({ length: 50 }, (_, i) => `+added line ${i} ${"x".repeat(60)}`);
+		const diff = `diff --git a/file b/file\nindex 123..456\n--- a/file\n+++ b/file\n@@ -1,5 +1,55 @@\n${contextLines.join("\n")}\n${changedLines.join("\n")}`;
+
 		await generateCommitMessage(diff, { apiKey: "test_key" });
 
 		const userPrompt = mockCreate.mock.calls[0][0].messages[1].content;
-		expect(userPrompt).toContain(`${"a".repeat(256)}...`);
-		expect(userPrompt).not.toContain(longLine);
+		expect(userPrompt).not.toContain(" unchanged context line 0");
+		expect(userPrompt).not.toContain(" unchanged context line 399");
+		expect(userPrompt).toContain("+added line 0");
+		expect(userPrompt).toContain("+added line 49");
 	});
 
-	it("truncates hunks when diff still exceeds 40K after line truncation", async () => {
+	it("truncates hunks when diff still exceeds 20K after stripping context", async () => {
 		mockCreate.mockResolvedValue({
 			choices: [{ message: { content: "feat: test" } }],
 		});
 
-		// Create a diff >40K with lines under 256 chars
+		// Create a diff >20K with no context lines (all + lines)
 		const lines = Array.from({ length: 250 }, (_, i) => `+line ${i} ${"x".repeat(180)}`);
 		const diff = `diff --git a/file1 b/file1\n${lines.join("\n")}\ndiff --git a/file2 b/file2\n${lines.join("\n")}`;
 		await generateCommitMessage(diff, { apiKey: "test_key" });
 
 		const userPrompt = mockCreate.mock.calls[0][0].messages[1].content;
-		// After truncation, should be <= 40K + prefix
-		expect(userPrompt.length).toBeLessThanOrEqual(41000);
+		// After truncation, should be <= 21K (20K + prefix overhead)
+		expect(userPrompt.length).toBeLessThanOrEqual(21000);
+	});
+
+	it("includes stat summary in user prompt", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "feat: test" } }],
+		});
+
+		const diff =
+			"diff --git a/src/services/ai.ts b/src/services/ai.ts\n" +
+			"--- a/src/services/ai.ts\n" +
+			"+++ b/src/services/ai.ts\n" +
+			"@@ -1,5 +1,10 @@\n" +
+			"+new line 1\n" +
+			"+new line 2\n" +
+			"-old line 1\n" +
+			"diff --git a/src/cli.ts b/src/cli.ts\n" +
+			"--- a/src/cli.ts\n" +
+			"+++ b/src/cli.ts\n" +
+			"@@ -1,2 +1,3 @@\n" +
+			"+another new line\n";
+
+		await generateCommitMessage(diff, { apiKey: "test_key" });
+
+		const userPrompt = mockCreate.mock.calls[0][0].messages[1].content;
+		expect(userPrompt).toContain("Change summary:");
+		expect(userPrompt).toContain("src/services/ai.ts");
+		expect(userPrompt).toContain("src/cli.ts");
+		expect(userPrompt).toContain("+2 -1");
+		expect(userPrompt).toContain("+1 -0");
+	});
+
+	it("falls back to file summary for very large diffs", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "feat: test" } }],
+		});
+
+		// Create a massive diff with many files and many changed lines per hunk
+		// so that even after context stripping and hunk capping it still exceeds 20K
+		const files: string[] = [];
+		for (let f = 0; f < 30; f++) {
+			const lines = Array.from({ length: 50 }, (_, i) => `+line ${i} ${"x".repeat(400)}`);
+			files.push(`diff --git a/file${f}.ts b/file${f}.ts\n@@ -1,5 +1,55 @@\n${lines.join("\n")}`);
+		}
+		const diff = files.join("\n");
+
+		await generateCommitMessage(diff, { apiKey: "test_key" });
+
+		const userPrompt = mockCreate.mock.calls[0][0].messages[1].content;
+		expect(userPrompt).toContain("Summary of changes:");
+		expect(userPrompt).toContain("file0.ts | changed");
+		expect(userPrompt).toContain("file29.ts | changed");
 	});
 
 	it("returns empty string when API response content is empty", async () => {

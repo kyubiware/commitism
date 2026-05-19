@@ -73,9 +73,7 @@ describe("commitCommand", () => {
 			diff: "some diff",
 		});
 		vi.mocked(getApiKey).mockRejectedValue(
-			new Error(
-				"Please set your Groq API key via `cmint config set GROQ_API_KEY=<your token>`",
-			),
+			new Error("Please set your Groq API key via `cmint config set GROQ_API_KEY=<your token>`"),
 		);
 
 		// Should NOT throw — errors should be caught and handled gracefully

@@ -1,7 +1,7 @@
-import { execa } from "execa";
 import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import os from "node:os";
+import { join } from "node:path";
+import { execa } from "execa";
 import ini from "ini";
 
 const CONFIG_PATH = join(os.homedir(), ".commit-mint");
@@ -56,7 +56,5 @@ export async function getApiKey(): Promise<string> {
 	const config = await readConfig();
 	if (config.GROQ_API_KEY) return config.GROQ_API_KEY;
 
-	throw new Error(
-		"Please set your Groq API key via `cmint config set GROQ_API_KEY=<your token>`",
-	);
+	throw new Error("Please set your Groq API key via `cmint config set GROQ_API_KEY=<your token>`");
 }

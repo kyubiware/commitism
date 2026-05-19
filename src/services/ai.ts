@@ -1,47 +1,50 @@
 import Groq from "groq-sdk";
 
+const MAX_DIFF_CHARS = 20000;
+
 const CONVENTIONAL_COMMIT_REGEX =
 	/^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\(.+\))?!?: .+$/;
 
+function stripContextLines(diff: string): string {
+	return diff
+		.split("\n")
+		.filter((line) => !line.startsWith(" "))
+		.join("\n");
+}
+
 function compressDiff(diff: string): string {
-	if (diff.length <= 40000) {
+	// Tier 0 — Full diff
+	if (diff.length <= MAX_DIFF_CHARS) {
 		return diff;
 	}
 
-	// Truncate lines longer than 256 chars
-	let result = diff
-		.split("\n")
-		.map((line) => (line.length > 256 ? `${line.slice(0, 256)}...` : line))
-		.join("\n");
-
-	if (result.length <= 40000) {
+	// Tier 1 — Strip context lines
+	let result = stripContextLines(diff);
+	if (result.length <= MAX_DIFF_CHARS) {
 		return result;
 	}
 
-	// Hunk truncation: split by file, sort by hunk count, truncate hunks
+	// Tier 2 — Per-hunk line cap
 	const fileDiffs = result.split(/(?=diff --git)/).filter(Boolean);
-	const files = fileDiffs.map((fd) => ({
-		diff: fd,
-		parts: fd.split(/(?=\n@@)/),
-	}));
-
-	while (result.length > 40000) {
-		files.sort((a, b) => b.parts.length - a.parts.length);
-		const longest = files[0];
-		if (!longest || longest.parts.length <= 1) {
-			break;
-		}
-		longest.parts.pop();
-		longest.diff = longest.parts.join("");
-		result = files.map((f) => f.diff).join("");
-	}
-
-	if (result.length <= 40000) {
+	const cappedFiles = fileDiffs.map((fd) => {
+		const parts = fd.split(/(?=\n@@)/);
+		const cappedParts = parts.map((part, idx) => {
+			if (idx === 0) return part; // Keep file header
+			const lines = part.split("\n");
+			const header = lines[0]; // @@ line
+			const changedLines = lines.slice(1).filter((l) => l.startsWith("+") || l.startsWith("-"));
+			const keptLines = changedLines.slice(0, 10);
+			return [header, ...keptLines].join("\n");
+		});
+		return cappedParts.join("");
+	});
+	result = cappedFiles.join("");
+	if (result.length <= MAX_DIFF_CHARS) {
 		return result;
 	}
 
-	// Numstat fallback
-	const fileMatches = result.match(/^diff --git a\/(.+) b\/(.+)$/gm) || [];
+	// Tier 3 — File summary
+	const fileMatches = diff.match(/^diff --git a\/(.+) b\/(.+)$/gm) || [];
 	const summary = fileMatches
 		.map((f) => {
 			const match = f.match(/^diff --git a\/(.+) b\/(.+)$/);
@@ -49,6 +52,38 @@ function compressDiff(diff: string): string {
 		})
 		.filter(Boolean);
 	return `Summary of changes:\n${summary.join("\n")}`;
+}
+
+function buildStatSummary(diff: string): string {
+	const files: { name: string; adds: number; dels: number }[] = [];
+	let currentFile = "";
+	let adds = 0;
+	let dels = 0;
+
+	for (const line of diff.split("\n")) {
+		const match = line.match(/^diff --git a\/.+ b\/(.+)$/);
+		if (match) {
+			if (currentFile) files.push({ name: currentFile, adds, dels });
+			currentFile = match[1];
+			adds = 0;
+			dels = 0;
+		} else if (line.startsWith("+") && !line.startsWith("+++")) {
+			adds++;
+		} else if (line.startsWith("-") && !line.startsWith("---")) {
+			dels++;
+		}
+	}
+	if (currentFile) files.push({ name: currentFile, adds, dels });
+
+	const totalAdds = files.reduce((s, f) => s + f.adds, 0);
+	const totalDels = files.reduce((s, f) => s + f.dels, 0);
+
+	const lines = files.map((f) => ` ${f.name}  | +${f.adds} -${f.dels}`);
+	lines.push(
+		` ${files.length} files changed, ${totalAdds} insertions(+), ${totalDels} deletions(-)`,
+	);
+
+	return lines.join("\n");
 }
 
 function buildSystemPrompt(type?: string): string {
@@ -66,9 +101,12 @@ function buildSystemPrompt(type?: string): string {
 	return prompt;
 }
 
-function buildUserPrompt(diff: string, hint?: string): string {
-	const prefix = hint ? `Context: ${hint}\n\n` : "";
-	return `${prefix}Generate a conventional commit for:\n\n${diff}`;
+function buildUserPrompt(diff: string, hint?: string, statSummary?: string): string {
+	const parts: string[] = [];
+	if (hint) parts.push(`Context: ${hint}`);
+	if (statSummary) parts.push(`Change summary:\n${statSummary}`);
+	parts.push(`Generate a conventional commit for:\n\n${diff}`);
+	return parts.join("\n\n");
 }
 
 function isValidConventionalCommit(message: string): boolean {
@@ -99,8 +137,9 @@ export async function generateCommitMessage(
 	});
 
 	const compressedDiff = compressDiff(diff);
+	const statSummary = buildStatSummary(diff);
 	const systemPrompt = buildSystemPrompt(options.type);
-	const userPrompt = buildUserPrompt(compressedDiff, options.hint);
+	const userPrompt = buildUserPrompt(compressedDiff, options.hint, statSummary);
 
 	async function callAI(strictSystemPrompt?: string): Promise<string> {
 		const completion = await client.chat.completions.create({

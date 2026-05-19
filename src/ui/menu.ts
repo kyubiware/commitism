@@ -1,8 +1,8 @@
 import * as p from "@clack/prompts";
-import { red, green, yellow, dim, bold, cyan } from "kolorist";
+import { bold, cyan, dim, green, red, yellow } from "kolorist";
+import { copyToClipboard } from "../services/clipboard.js";
 import type { HookError } from "../services/hooks.js";
 import { formatErrorReport } from "../services/hooks.js";
-import { copyToClipboard } from "../services/clipboard.js";
 
 export async function showRecoveryMenu(
 	errors: HookError[],
@@ -19,9 +19,21 @@ export async function showRecoveryMenu(
 	const choice = await p.select({
 		message: "What do you want to do?",
 		options: [
-			{ label: "Copy error report to clipboard", value: "clipboard", hint: "Paste into another terminal for an AI agent" },
-			{ label: "Skip hooks and commit (--no-verify)", value: "skip", hint: "Commit anyway, fix later" },
-			{ label: "Re-stage files and retry", value: "restage", hint: "Pick up fixes from another terminal" },
+			{
+				label: "Copy error report to clipboard",
+				value: "clipboard",
+				hint: "Paste into another terminal for an AI agent",
+			},
+			{
+				label: "Skip hooks and commit (--no-verify)",
+				value: "skip",
+				hint: "Commit anyway, fix later",
+			},
+			{
+				label: "Re-stage files and retry",
+				value: "restage",
+				hint: "Pick up fixes from another terminal",
+			},
 			{ label: "Edit commit message", value: "edit", hint: "Modify the message before retrying" },
 			{ label: "Cancel", value: "cancel" },
 		],
