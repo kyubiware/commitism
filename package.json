@@ -1,10 +1,10 @@
 {
-  "name": "commitism",
+  "name": "commit-mint",
   "version": "0.1.0",
   "description": "A commit tool that actually handles hook failures",
   "type": "module",
   "bin": {
-    "commitism": "./dist/cli.mjs"
+    "cmint": "./dist/cli.mjs"
   },
   "files": [
     "dist"
@@ -35,7 +35,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kyubiware/commitism.git"
+    "url": "https://github.com/kyubiware/commit-mint.git"
   },
   "dependencies": {
     "@clack/prompts": "^0.9.1",

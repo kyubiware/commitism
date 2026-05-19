@@ -41,7 +41,7 @@ export async function showRecoveryMenu(
 			} else {
 				p.outro(red("No clipboard tool found. Install xclip, wl-copy, or xsel."));
 			}
-			p.log.info(dim("Fix the errors, then run: commitism --retry"));
+			p.log.info(dim("Fix the errors, then run: cmint --retry"));
 			process.exit(0);
 			break;
 		}

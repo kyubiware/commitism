@@ -1,4 +1,4 @@
-# commitism
+# commit-mint
 
 > A commit tool that actually handles hook failures.
 
@@ -10,9 +10,9 @@ When `git commit` fails due to pre-commit hooks (lint-staged, biome, eslint, tsc
 
 Every existing AI commit tool has the same gap — they generate a message, call `git commit`, and if hooks fail, they just die.
 
-## What commitism does differently
+## What commit-mint does differently
 
-commitism wraps the entire commit lifecycle — stage, generate, attempt, recover, retry — in one CLI tool:
+commit-mint wraps the entire commit lifecycle — stage, generate, attempt, recover, retry — in one CLI tool:
 
 ```
 stage files → generate message → attempt commit → hooks fail?
@@ -24,7 +24,7 @@ stage files → generate message → attempt commit → hooks fail?
 ## Installation
 
 ```bash
-npm install -g commitism
+npm install -g commit-mint
 ```
 
 Requires **Node.js 18+**.
@@ -33,31 +33,31 @@ Requires **Node.js 18+**.
 
 ```bash
 # Normal commit flow
-commitism
+cmint
 
 # Auto-stage all tracked files
-commitism -a
+cmint -a
 
 # Skip AI, provide your own message
-commitism -m "feat: add dark mode"
+cmint -m "feat: add dark mode"
 
 # Retry last failed commit (uses cached message)
-commitism --retry
-commitism -r
+cmint --retry
+cmint -r
 
 # Configuration
-commitism config get GROQ_API_KEY
-commitism config set GROQ_API_KEY=gsk_...
-commitism config set model openai/gpt-oss-20b
+cmint config get GROQ_API_KEY
+cmint config set GROQ_API_KEY=gsk_...
+cmint config set model openai/gpt-oss-20b
 ```
 
 ### First run
 
-If no `GROQ_API_KEY` is set in `~/.commitism` or `$GROQ_API_KEY`, you'll be prompted to enter one. It's saved to `~/.commitism` for future runs.
+If no `GROQ_API_KEY` is set in `~/.commit-mint` or `$GROQ_API_KEY`, you'll be prompted to enter one. It's saved to `~/.commit-mint` for future runs.
 
 ## Recovery menu
 
-When a pre-commit hook blocks your commit, commitism parses the error output and presents an interactive menu:
+When a pre-commit hook blocks your commit, commit-mint parses the error output and presents an interactive menu:
 
 ```
 ╭─────────────────────────────────────────────────╮
@@ -82,11 +82,11 @@ When a pre-commit hook blocks your commit, commitism parses the error output and
 | **Skip hooks** | Re-runs `git commit --no-verify` with the same message — for when hooks are wrong or you'll fix later |
 | **Re-stage & retry** | Runs `git add -A` again (picks up fixes made in another terminal), then retries the commit |
 | **Edit message** | Opens a prompt to modify the commit message, then retries |
-| **Cancel** | Exits. Commit message is cached for `commitism --retry` |
+| **Cancel** | Exits. Commit message is cached for `cmint --retry` |
 
 ### Supported hook tools
 
-commitism parses errors from:
+commit-mint parses errors from:
 
 - **lint-staged** — task failure detection
 - **biome** — lint/format errors with file:line:col
@@ -98,7 +98,7 @@ Unrecognized error output is shown as raw fallback.
 
 ## Configuration
 
-Stored in `~/.commitism` (INI format):
+Stored in `~/.commit-mint` (INI format):
 
 ```ini
 GROQ_API_KEY=gsk_...
@@ -123,9 +123,9 @@ You can also set `GROQ_API_KEY` via environment variable.
 ## CLI reference
 
 ```
-commitism --help
+cmint --help
 
-  commitism
+  cmint
 
   A commit tool that actually handles hook failures
 
@@ -142,12 +142,12 @@ commitism --help
 
 ## Retry persistence
 
-Failed commit messages are cached to `~/.cache/commitism/<repo-hash>.json`. Running `commitism --retry` reuses the last message without regenerating — useful after fixing errors flagged by the recovery menu.
+Failed commit messages are cached to `~/.cache/commit-mint/<repo-hash>.json`. Running `cmint --retry` reuses the last message without regenerating — useful after fixing errors flagged by the recovery menu.
 
 ## How it works
 
 ```
-commitism/
+commit-mint/
 ├── src/
 │   ├── cli.ts              # Entry point, argument parsing (cleye)
 │   ├── commands/
@@ -156,12 +156,12 @@ commitism/
 │   ├── services/
 │   │   ├── git.ts          # Git operations (stage, commit, diff, HEAD)
 │   │   ├── hooks.ts        # Hook error parser (lint-staged, biome, tsc, etc.)
-│   │   ├── config.ts       # INI config read/write at ~/.commitism
+│   │   ├── config.ts       # INI config read/write at ~/.commit-mint
 │   │   └── clipboard.ts    # Cross-platform clipboard (xclip/wl-copy/pbcopy)
 │   ├── ui/
 │   │   └── menu.ts         # Interactive recovery TUI (@clack/prompts)
 │   └── utils/
-│       └── cache.ts        # Commit message persistence at ~/.cache/commitism/
+│       └── cache.ts        # Commit message persistence at ~/.cache/commit-mint/
 ```
 
 ## Key differentiators

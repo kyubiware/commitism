@@ -3,7 +3,7 @@ import { join } from "node:path";
 import os from "node:os";
 import { createHash } from "node:crypto";
 
-const CACHE_DIR = join(os.homedir(), ".cache", "commitism");
+const CACHE_DIR = join(os.homedir(), ".cache", "commit-mint");
 
 function repoHash(repoPath: string): string {
 	return createHash("sha256").update(repoPath).digest("hex").slice(0, 12);

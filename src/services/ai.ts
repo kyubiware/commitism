@@ -135,7 +135,7 @@ export async function generateCommitMessage(
 		return enforceMaxLength(message, options.maxLength);
 	} catch (error) {
 		if (error instanceof Groq.AuthenticationError) {
-			throw new Error("Invalid GROQ_API_KEY. Run: commitism config set GROQ_API_KEY=<key>");
+			throw new Error("Invalid GROQ_API_KEY. Run: cmint config set GROQ_API_KEY=<key>");
 		}
 		if (error instanceof Groq.RateLimitError) {
 			throw new Error("Rate limited by Groq. Please wait and try again.");

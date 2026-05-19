@@ -9,7 +9,7 @@ import { configCommand } from "./commands/config.js";
 
 cli(
 	{
-		name: "commitism",
+		name: "cmint",
 		version,
 		description: "A commit tool that actually handles hook failures",
 		flags: {

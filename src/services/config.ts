@@ -4,7 +4,7 @@ import { join } from "node:path";
 import os from "node:os";
 import ini from "ini";
 
-const CONFIG_PATH = join(os.homedir(), ".commitism");
+const CONFIG_PATH = join(os.homedir(), ".commit-mint");
 
 interface Config {
 	GROQ_API_KEY?: string;
@@ -57,6 +57,6 @@ export async function getApiKey(): Promise<string> {
 	if (config.GROQ_API_KEY) return config.GROQ_API_KEY;
 
 	throw new Error(
-		"Please set your Groq API key via `commitism config set GROQ_API_KEY=<your token>`",
+		"Please set your Groq API key via `cmint config set GROQ_API_KEY=<your token>`",
 	);
 }

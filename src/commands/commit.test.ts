@@ -74,7 +74,7 @@ describe("commitCommand", () => {
 		});
 		vi.mocked(getApiKey).mockRejectedValue(
 			new Error(
-				"Please set your Groq API key via `commitism config set GROQ_API_KEY=<your token>`",
+				"Please set your Groq API key via `cmint config set GROQ_API_KEY=<your token>`",
 			),
 		);
 

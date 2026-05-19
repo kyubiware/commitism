@@ -31,10 +31,10 @@ export async function commitCommand(flags: CommitFlags) {
 		const repoRoot = await getRepoRoot();
 		const cached = await loadCachedCommit(repoRoot);
 		if (!cached) {
-			outro(red("No cached commit message found. Run commitism without --retry first."));
+			outro(red("No cached commit message found. Run cmint without --retry first."));
 			process.exit(1);
 		}
-		intro("commitism — retry");
+		intro("commit-mint — retry");
 		const s = spinner();
 		s.start("Retrying commit...");
 		const result = await attemptCommit(cached.message);
@@ -58,7 +58,7 @@ export async function commitCommand(flags: CommitFlags) {
 	}
 
 	// ── Normal mode ─────────────────────────────────────────────────
-	intro("commitism");
+	intro("commit-mint");
 
 	const status = await getStatusShort();
 	if (!status) {

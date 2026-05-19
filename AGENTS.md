@@ -11,24 +11,24 @@ CLI tool that wraps `git commit` with AI-generated messages (Groq) and an intera
 ## STRUCTURE
 
 ```
-commitism/
+commit-mint/
 ├── src/
 │   ├── cli.ts              # Entry point (cleye CLI parser)
 │   ├── commands/
 │   │   ├── commit.ts       # Main commit flow: stage → generate → commit → recover
-│   │   └── config.ts       # `commitism config get/set` subcommand
+│   │   └── config.ts       # `cmint config get/set` subcommand
 │   ├── services/
 │   │   ├── git.ts          # Git operations (stage, diff, commit, HEAD)
 │   │   ├── hooks.ts        # Hook error parser (lint-staged, biome, tsc, vitest, eslint)
-│   │   ├── config.ts       # INI config at ~/.commitism
+│   │   ├── config.ts       # INI config at ~/.commit-mint
 │   │   └── clipboard.ts    # Cross-platform clipboard (xclip/wl-copy/pbcopy)
 │   ├── ui/
 │   │   └── menu.ts         # Recovery TUI (copy/skip/retry/edit/cancel)
 │   └── utils/
-│       └── cache.ts        # Commit message persistence at ~/.cache/commitism/
+│       └── cache.ts        # Commit message persistence at ~/.cache/commit-mint/
 ├── biome.json              # Formatter: tabs, 100 char width
 ├── tsconfig.json           # ES2022, ESNext modules, strict
-└── package.json            # ESM, bin: commitism → dist/cli.js
+└── package.json            # ESM, bin: cmint → dist/cli.js
 ```
 
 ## WHERE TO LOOK
@@ -40,7 +40,7 @@ commitism/
 | Parse a new hook type | `src/services/hooks.ts` | Add parser fn, wire into `parseHookErrors` |
 | Add recovery menu option | `src/ui/menu.ts` | Add to options array + switch case |
 | Change AI provider | `src/commands/commit.ts` → `generateMessage` | Currently placeholder, uses groq-sdk |
-| Config format/defaults | `src/services/config.ts` | INI at `~/.commitism`, defaults at line 19 |
+| Config format/defaults | `src/services/config.ts` | INI at `~/.commit-mint`, defaults at line 19 |
 | Cache persistence | `src/utils/cache.ts` | SHA-256 hash of repo path as key |
 
 ## CODE MAP
@@ -57,15 +57,15 @@ commitism/
 | `CachedCommit` | Interface | `src/utils/cache.ts:16` | `{ message, timestamp, repoPath }` |
 | `Config` | Interface | `src/services/config.ts:9` | Config shape (GROQ_API_KEY, model, locale, etc.) |
 | `copyToClipboard` | Function | `src/services/clipboard.ts:3` | Tries wl-copy → xclip → xsel → pbcopy |
-| `configCommand` | Command | `src/commands/config.ts:4` | `commitism config get/set` |
+| `configCommand` | Command | `src/commands/config.ts:4` | `cmint config get/set` |
 
 ## CONVENTIONS
 
 - **Tabs for indentation** (biome.json: `indentStyle: "tab"`)
 - **ESM only** — all imports use `.js` extension (`import { x } from "./foo.js"`)
 - **Error handling**: `execa` with `reject: false` for expected failures; try/catch with `ExecaError` for commits
-- **Config**: INI format at `~/.commitism`, defaults merged via spread
-- **Cache**: JSON at `~/.cache/commitism/<sha256-prefix>.json`
+- **Config**: INI format at `~/.commit-mint`, defaults merged via spread
+- **Cache**: JSON at `~/.cache/commit-mint/<sha256-prefix>.json`
 - **CLI parsing**: `cleye` library (argv → typed flags)
 - **TUI**: `@clack/prompts` for selects/notes/spinners, `kolorist` for colors
 - **No index files** — direct imports from module files
@@ -76,7 +76,7 @@ commitism/
 - **NEVER use CommonJS syntax** — this is ESM-only (`"type": "module"`)
 - **NEVER add clipboard dependencies** — shell out to platform tools (xclip/wl-copy/pbcopy)
 - **NEVER modify hook output parsing without testing all 5 parsers** — lint-staged, biome, tsc, vitest/eslint are all interleaved in `parseHookErrors`
-- **NEVER hardcode model names** — read from config (`model` key in `~/.commitism`)
+- **NEVER hardcode model names** — read from config (`model` key in `~/.commit-mint`)
 
 ## COMMANDS
 
@@ -93,8 +93,8 @@ npm run test        # vitest run
 
 - `generateMessage()` in `src/commands/commit.ts` is a placeholder — AI integration not yet implemented
 - `vision.md` describes full intended architecture; some files listed there don't exist yet (`src/services/ai.ts`, `src/ui/display.ts`, `src/utils/platform.ts`, `src/commands/retry.ts`)
-- Config file path: `~/.commitism` (not `~/.config/commitism`)
-- Cache path: `~/.cache/commitism/`
+- Config file path: `~/.commit-mint` (not `~/.config/commit-mint`)
+- Cache path: `~/.cache/commit-mint/`
 - Clipboard tries commands in order: wl-copy → xclip → xsel → pbcopy
 - Recovery menu is recursive — re-stage failure re-shows the menu
 - `getStagedDiff` excludes: package-lock.json, node_modules, dist, build, .next, coverage, *.log, *.min.js, *.min.css, *.lock, .DS_Store

@@ -1,4 +1,4 @@
-# commitism
+# commit-mint
 
 > A commit tool that actually handles hook failures.
 
@@ -6,9 +6,9 @@
 
 When `git commit` fails due to pre-commit hooks (lint-staged, biome, eslint, tsc, etc.), you're left staring at a wall of raw error output with no clear path forward. The commit message is lost. You have to fix the errors, remember/regenerate the message, and try again. Every AI commit tool (aicommits, lazycommit, opencommit) has this same gap — they generate a message, call `git commit`, and if hooks fail, they just die.
 
-## What commitism does differently
+## What commit-mint does differently
 
-commitism wraps the entire commit lifecycle — generate, attempt, recover, retry:
+commit-mint wraps the entire commit lifecycle — generate, attempt, recover, retry:
 
 ```
 stage files → generate message → attempt commit → hooks fail?
@@ -20,7 +20,7 @@ stage files → generate message → attempt commit → hooks fail?
 ## Core Flow
 
 ### 1. Stage
-- `commitism` stages all changed tracked files (`git add -A` equivalent)
+- `cmint` stages all changed tracked files (`git add -A` equivalent)
 - Shows what's being staged
 
 ### 2. Generate commit message
@@ -60,16 +60,16 @@ Parses the git hook error output and presents a clean TUI menu:
 | **Skip hooks** | Re-runs `git commit --no-verify` with the same message — for when hooks are wrong or you'll fix later |
 | **Re-stage & retry** | `git add -A` again (picks up any fixes made in another terminal), then re-attempts commit with the same message |
 | **Edit message** | Opens editor to modify the commit message, then re-attempts |
-| **Cancel** | Exit. Commit message is cached for `commitism --retry` |
+| **Cancel** | Exit. Commit message is cached for `cmint --retry` |
 
 ### Retry persistence
 
-Failed commit messages are cached to `~/.cache/commitism/<repo-hash>.json`. Running `commitism --retry` reuses the last message without regenerating.
+Failed commit messages are cached to `~/.cache/commit-mint/<repo-hash>.json`. Running `cmint --retry` reuses the last message without regenerating.
 
 ## Architecture
 
 ```
-commitism/
+commit-mint/
 ├── src/
 │   ├── cli.ts              # Entry point, argument parsing
 │   ├── commands/
@@ -96,25 +96,25 @@ commitism/
 
 ```bash
 # Normal commit flow
-commitism
-commitism -a          # auto-stage tracked files
+cmint
+cmint -a          # auto-stage tracked files
 
 # Retry last failed commit
-commitism --retry
-commitism -r
+cmint --retry
+cmint -r
 
 # Skip AI, provide your own message
-commitism -m "feat: add new thing"
+cmint -m "feat: add new thing"
 
 # Config
-commitism config set GROQ_API_KEY=gsk_...
-commitism config get model
-commitism config set model openai/gpt-oss-20b
+cmint config set GROQ_API_KEY=gsk_...
+cmint config get model
+cmint config set model openai/gpt-oss-20b
 ```
 
 ## Config
 
-Stored in `~/.commitism` (INI format, same as lazycommit):
+Stored in `~/.commit-mint` (INI format, same as lazycommit):
 
 ```ini
 GROQ_API_KEY=gsk_...
@@ -157,7 +157,7 @@ Zero clipboard dependency — we shell out to `xclip`/`wl-copy`/`pbcopy` based o
 
 ## Success criteria
 
-- `npm i -g commitism` works on macOS, Linux, WSL
+- `npm i -g commit-mint` works on macOS, Linux, WSL
 - Hook failure recovery menu appears for lint-staged, biome, eslint, tsc, vitest, jest errors
 - Clipboard copy works on macOS (`pbcopy`), Linux X11 (`xclip`), Linux Wayland (`wl-copy`)
 - `--retry` restores last failed commit message
