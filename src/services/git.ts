@@ -87,7 +87,18 @@ export async function attemptCommit(
 ): Promise<CommitResult> {
 	debug("attemptCommit:", message, extraArgs.length ? extraArgs : "(no extra args)");
 	try {
-		await execa("git", ["commit", "-m", message, ...extraArgs]);
+		const subprocess = execa("git", ["commit", "-m", message, ...extraArgs]);
+
+		// Stream hook output (lint-staged, biome, etc.) to the terminal in real-time
+		// while also collecting it for error reporting
+		const stderrChunks: string[] = [];
+		subprocess.stderr?.on("data", (chunk: Buffer) => {
+			const text = chunk.toString();
+			stderrChunks.push(text);
+			process.stderr.write(chunk);
+		});
+
+		await subprocess;
 		debug("attemptCommit: success");
 		return { ok: true };
 	} catch (error) {
@@ -96,7 +107,7 @@ export async function attemptCommit(
 		return {
 			ok: false,
 			error: e.message,
-			stderr: e.stderr ?? "",
+			stderr: typeof e.stderr === "string" ? e.stderr : "",
 		};
 	}
 }
