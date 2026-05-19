@@ -3,6 +3,7 @@ import { bold, cyan, dim, green, red, yellow } from "kolorist";
 import { copyToClipboard } from "../services/clipboard.js";
 import type { HookError } from "../services/hooks.js";
 import { formatErrorReport } from "../services/hooks.js";
+import { debug } from "../utils/debug.js";
 
 export async function showRecoveryMenu(
 	errors: HookError[],
@@ -11,6 +12,8 @@ export async function showRecoveryMenu(
 	onRestage: () => Promise<boolean>,
 	message: string,
 ): Promise<void> {
+	debug("showRecoveryMenu: %d errors", errors.length);
+
 	p.note(
 		errors.map((e) => `  ${red("•")} [${e.tool}] ${e.message}`).join("\n"),
 		red(bold("Pre-commit hook failed")),
@@ -40,9 +43,12 @@ export async function showRecoveryMenu(
 	});
 
 	if (p.isCancel(choice)) {
+		debug("showRecoveryMenu: user cancelled");
 		p.outro(yellow("Cancelled. Message cached for --retry."));
 		process.exit(1);
 	}
+
+	debug("showRecoveryMenu: user chose %s", choice);
 
 	switch (choice) {
 		case "clipboard": {

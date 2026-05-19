@@ -6,6 +6,7 @@ const { version } = pkg;
 
 import { commitCommand } from "./commands/commit.js";
 import { configCommand } from "./commands/config.js";
+import { setDebug } from "./utils/debug.js";
 
 cli(
 	{
@@ -35,10 +36,17 @@ cli(
 				description: "Add context hint for AI commit message generation",
 				alias: "H",
 			},
+			debug: {
+				type: Boolean,
+				description: "Enable debug output",
+				alias: "d",
+				default: false,
+			},
 		},
 		commands: [configCommand],
 	},
 	(argv) => {
+		setDebug(argv.flags.debug);
 		commitCommand(argv.flags);
 	},
 );

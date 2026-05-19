@@ -1,9 +1,11 @@
 import type { ExecaError } from "execa";
 import { execa } from "execa";
+import { debug } from "../utils/debug.js";
 
 export class KnownError extends Error {}
 
 export async function assertGitRepo() {
+	debug("assertGitRepo");
 	const { failed } = await execa("git", ["rev-parse", "--show-toplevel"], {
 		reject: false,
 	});
@@ -14,6 +16,7 @@ export async function assertGitRepo() {
 
 export async function getRepoRoot() {
 	const { stdout } = await execa("git", ["rev-parse", "--show-toplevel"]);
+	debug("getRepoRoot:", stdout.trim());
 	return stdout.trim();
 }
 
@@ -40,7 +43,10 @@ export async function getStagedDiff(exclude?: string[]) {
 		...defaultExcludes,
 		...excludeArgs,
 	]);
-	if (!files) return null;
+	if (!files) {
+		debug("getStagedDiff: no staged files");
+		return null;
+	}
 
 	const { stdout: diff } = await execa("git", [
 		"diff",
@@ -50,10 +56,12 @@ export async function getStagedDiff(exclude?: string[]) {
 		...excludeArgs,
 	]);
 
+	debug("getStagedDiff:", files.split("\n").filter(Boolean).length, "files,", diff.length, "chars");
 	return { files: files.split("\n").filter(Boolean), diff };
 }
 
 export async function stageAll() {
+	debug("stageAll: git add -A");
 	await execa("git", ["add", "-A"]);
 }
 
@@ -77,11 +85,14 @@ export async function attemptCommit(
 	message: string,
 	extraArgs: string[] = [],
 ): Promise<CommitResult> {
+	debug("attemptCommit:", message, extraArgs.length ? extraArgs : "(no extra args)");
 	try {
 		await execa("git", ["commit", "-m", message, ...extraArgs]);
+		debug("attemptCommit: success");
 		return { ok: true };
 	} catch (error) {
 		const e = error as ExecaError;
+		debug("attemptCommit: failed —", e.message?.slice(0, 200));
 		return {
 			ok: false,
 			error: e.message,
@@ -91,5 +102,6 @@ export async function attemptCommit(
 }
 
 export async function attemptCommitNoVerify(message: string): Promise<CommitResult> {
+	debug("attemptCommitNoVerify:", message);
 	return attemptCommit(message, ["--no-verify"]);
 }

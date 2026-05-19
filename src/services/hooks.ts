@@ -1,4 +1,5 @@
 import type { ExecaError } from "execa";
+import { debug } from "../utils/debug.js";
 
 export interface HookError {
 	tool: string;
@@ -13,6 +14,7 @@ export interface HookError {
 export function parseHookErrors(stderr: string): HookError[] {
 	if (!stderr) return [];
 
+	debug("parseHookErrors: stderr length=%d", stderr.length);
 	const errors: HookError[] = [];
 	const lines = stderr.split("\n");
 
@@ -48,6 +50,7 @@ export function parseHookErrors(stderr: string): HookError[] {
 
 	// Fallback: if nothing parsed, return the raw output
 	if (errors.length === 0) {
+		debug("parseHookErrors: no patterns matched, using raw fallback");
 		errors.push({
 			tool: "git hooks",
 			message: stderr.trim(),
@@ -55,6 +58,7 @@ export function parseHookErrors(stderr: string): HookError[] {
 		});
 	}
 
+	debug("parseHookErrors: found %d errors", errors.length);
 	return errors;
 }
 

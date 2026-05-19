@@ -1,4 +1,5 @@
 import Groq from "groq-sdk";
+import { debug } from "../utils/debug.js";
 
 const MAX_DIFF_CHARS = 20000;
 
@@ -131,6 +132,9 @@ export async function generateCommitMessage(
 		hint?: string;
 	},
 ): Promise<string> {
+	debug("generateCommitMessage: model=%s, maxLength=%s, type=%s, hint=%s",
+		options.model ?? "default", options.maxLength ?? "default", options.type ?? "none", options.hint ?? "none");
+
 	const client = new Groq({
 		apiKey: options.apiKey,
 		timeout: options.timeout ?? 60000,
@@ -141,7 +145,11 @@ export async function generateCommitMessage(
 	const systemPrompt = buildSystemPrompt(options.type);
 	const userPrompt = buildUserPrompt(compressedDiff, options.hint, statSummary);
 
+	debug("Diff: %d chars → compressed to %d chars", diff.length, compressedDiff.length);
+	debug("Stat summary:\n%s", statSummary);
+
 	async function callAI(strictSystemPrompt?: string): Promise<string> {
+		debug("Calling AI with model:", options.model ?? "openai/gpt-oss-20b");
 		const completion = await client.chat.completions.create({
 			messages: [
 				{ role: "system", content: strictSystemPrompt ?? systemPrompt },
@@ -153,6 +161,7 @@ export async function generateCommitMessage(
 		});
 
 		const content = completion.choices[0]?.message?.content;
+		debug("AI response: %s", content?.slice(0, 200) ?? "(empty)");
 		return content?.trim() ?? "";
 	}
 
@@ -160,6 +169,7 @@ export async function generateCommitMessage(
 		let message = await callAI();
 
 		if (!isValidConventionalCommit(message)) {
+			debug("Message not valid conventional commit, retrying with strict prompt");
 			const retryMessage = await callAI(
 				"You MUST output ONLY a valid conventional commit message. " +
 					"Format: type(scope): description. " +
@@ -167,12 +177,18 @@ export async function generateCommitMessage(
 					"Valid types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test.",
 			);
 			if (isValidConventionalCommit(retryMessage)) {
+				debug("Retry produced valid conventional commit");
 				message = retryMessage;
+			} else {
+				debug("Retry also failed validation, using original message");
 			}
 		}
 
-		return enforceMaxLength(message, options.maxLength);
+		const result = enforceMaxLength(message, options.maxLength);
+		debug("Final message: %s", result);
+		return result;
 	} catch (error) {
+		debug("AI error: %s", error instanceof Error ? error.message : String(error));
 		if (error instanceof Groq.AuthenticationError) {
 			throw new Error("Invalid GROQ_API_KEY. Run: cmint config set GROQ_API_KEY=<key>");
 		}

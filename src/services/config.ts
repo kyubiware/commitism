@@ -3,6 +3,7 @@ import os from "node:os";
 import { join } from "node:path";
 import { execa } from "execa";
 import ini from "ini";
+import { debug } from "../utils/debug.js";
 
 const CONFIG_PATH = join(os.homedir(), ".commit-mint");
 
@@ -25,11 +26,15 @@ const defaults: Config = {
 };
 
 export async function readConfig(): Promise<Config> {
+	debug("readConfig: loading from %s", CONFIG_PATH);
 	try {
 		const raw = await readFile(CONFIG_PATH, "utf8");
 		const parsed = ini.parse(raw);
-		return { ...defaults, ...parsed };
+		const merged = { ...defaults, ...parsed };
+		debug("readConfig: loaded keys: %s", Object.keys(merged).join(", "));
+		return merged;
 	} catch {
+		debug("readConfig: no config file, using defaults");
 		return { ...defaults };
 	}
 }
@@ -51,10 +56,17 @@ export async function setConfigValue(key: string, value: string) {
 
 export async function getApiKey(): Promise<string> {
 	const envKey = process.env.GROQ_API_KEY;
-	if (envKey) return envKey;
+	if (envKey) {
+		debug("getApiKey: found in env");
+		return envKey;
+	}
 
 	const config = await readConfig();
-	if (config.GROQ_API_KEY) return config.GROQ_API_KEY;
+	if (config.GROQ_API_KEY) {
+		debug("getApiKey: found in config");
+		return config.GROQ_API_KEY;
+	}
 
+	debug("getApiKey: not found");
 	throw new Error("Please set your Groq API key via `cmint config set GROQ_API_KEY=<your token>`");
 }

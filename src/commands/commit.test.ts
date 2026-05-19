@@ -49,6 +49,12 @@ vi.mock("../services/ai.js", () => ({
 	generateCommitMessage: vi.fn(),
 }));
 
+vi.mock("../utils/debug.js", () => ({
+	debug: vi.fn(),
+	setDebug: vi.fn(),
+	isDebug: vi.fn(() => false),
+}));
+
 import { text } from "@clack/prompts";
 import { generateCommitMessage } from "../services/ai.js";
 import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
