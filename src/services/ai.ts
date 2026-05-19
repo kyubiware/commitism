@@ -6,6 +6,21 @@ const MAX_DIFF_CHARS = 20000;
 const CONVENTIONAL_COMMIT_REGEX =
 	/^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\(.+\))?!?: .+$/;
 
+function stripThinkTags(text: string): string {
+	return text.replace(/<think[\s\S]*?<\/think>/gi, "").trim();
+}
+
+function deriveMessageFromReasoning(reasoning: string): string | null {
+	const match = reasoning.match(
+		/(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\(.+\))?!?: .+/i,
+	);
+	if (match) return match[0].trim();
+
+	const sentences = reasoning.split(/[.!?]/);
+	const first = sentences.find((s) => s.trim().length >= 10);
+	return first ? first.trim() : null;
+}
+
 function stripContextLines(diff: string): string {
 	return diff
 		.split("\n")
@@ -129,7 +144,7 @@ function extractContentText(
 	if (Array.isArray(content)) {
 		return content
 			.filter((part) => part.type === "text" && typeof part.text === "string")
-			.map((part) => part.text as string)
+			.map((part) => stripThinkTags(part.text as string))
 			.join("")
 			.trim();
 	}
@@ -183,6 +198,7 @@ export async function generateCommitMessage(
 			(strictSystemPrompt ?? systemPrompt).length,
 		);
 		try {
+			const isReasoningModel = /^(o[1-9]|.*gpt-oss.*|.*gpt-5.*)/i.test(options.model ?? "");
 			const completion = await client.chat.completions.create({
 				messages: [
 					{ role: "system", content: strictSystemPrompt ?? systemPrompt },
@@ -190,12 +206,15 @@ export async function generateCommitMessage(
 				],
 				model: options.model ?? "openai/gpt-oss-20b",
 				temperature: 0.3,
-				max_tokens: 1024,
+				...(isReasoningModel ? { max_completion_tokens: 1024 } : { max_tokens: 1024 }),
+				reasoning_format: "parsed",
 			});
 
 			const elapsed = Date.now() - callStart;
 			const rawContent = completion.choices[0]?.message?.content;
-			const content = extractContentText(rawContent);
+			const processedContent =
+				typeof rawContent === "string" ? stripThinkTags(rawContent) : rawContent;
+			const content = extractContentText(processedContent);
 			debug(
 				"callAI response (%d ms): choices=%d, finishReason=%s, contentLen=%d, rawType=%s",
 				elapsed,
@@ -206,6 +225,19 @@ export async function generateCommitMessage(
 			);
 			debug("callAI raw content: %s", content.slice(0, 300) || "(empty)");
 			if (!content) {
+				const reasoning = completion.choices[0]?.message?.reasoning;
+				debug(
+					"callAI: content empty, attempting reasoning fallback (reasoningLen=%d)",
+					reasoning?.length ?? 0,
+				);
+				if (reasoning) {
+					const derived = deriveMessageFromReasoning(reasoning);
+					if (derived) {
+						debug("callAI: derived message from reasoning: %s", derived.slice(0, 100));
+						return stripThinkTags(derived);
+					}
+					debug("callAI: could not derive message from reasoning");
+				}
 				throw new Error("AI returned an empty commit message");
 			}
 			return content;

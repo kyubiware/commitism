@@ -68,15 +68,16 @@ describe("generateCommitMessage", () => {
 		expect(mockCreate).toHaveBeenCalledTimes(1);
 	});
 
-	it("sets max_tokens high enough for reasoning models", async () => {
+	it("sets max_tokens for non-reasoning models and leaves max_completion_tokens undefined", async () => {
 		mockCreate.mockResolvedValue({
 			choices: [{ message: { content: "feat: test" } }],
 		});
 
-		await generateCommitMessage("some diff", { apiKey: "test_key" });
+		await generateCommitMessage("some diff", { apiKey: "test_key", model: "llama-3.3-70b" });
 
 		const callArgs = mockCreate.mock.calls[0][0];
 		expect(callArgs.max_tokens).toBeGreaterThanOrEqual(1024);
+		expect(callArgs.max_completion_tokens).toBeUndefined();
 	});
 
 	it("injects hint into user prompt content", async () => {
@@ -366,5 +367,153 @@ describe("generateCommitMessage", () => {
 		await expect(generateCommitMessage("some diff", { apiKey: "test_key" })).rejects.toThrow(
 			"Unexpected error: Something went wrong",
 		);
+	});
+
+	// ── Think tag stripping ──
+
+	it("strips think tags from string content", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "<think>reasoning here</think>feat: real message" } }],
+		});
+		const result = await generateCommitMessage("some diff", { apiKey: "test_key" });
+		expect(result).toBe("feat: real message");
+	});
+
+	it("strips think tags case-insensitively across multiple lines", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "<THINK>\nmultiline reasoning\n</THINK>feat: test" } }],
+		});
+		const result = await generateCommitMessage("some diff", { apiKey: "test_key" });
+		expect(result).toBe("feat: test");
+	});
+
+	it("does not modify content without think tags", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "feat: clean message" } }],
+		});
+		const result = await generateCommitMessage("some diff", { apiKey: "test_key" });
+		expect(result).toBe("feat: clean message");
+	});
+
+	it("strips think tags from array content parts", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [
+				{
+					message: {
+						content: [
+							{ type: "text", text: "<think>why?</think>" },
+							{ type: "text", text: "feat: from array" },
+						],
+					},
+				},
+			],
+		});
+		const result = await generateCommitMessage("some diff", { apiKey: "test_key" });
+		expect(result).toBe("feat: from array");
+	});
+
+	// ── Model-aware max_tokens vs max_completion_tokens ──
+
+	it("uses max_completion_tokens for o-series reasoning models", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "feat: test" } }],
+		});
+		await generateCommitMessage("some diff", { apiKey: "test_key", model: "o3-mini" });
+		const callArgs = mockCreate.mock.calls[0][0];
+		expect(callArgs.max_completion_tokens).toBeGreaterThanOrEqual(1024);
+		expect(callArgs.max_tokens).toBeUndefined();
+	});
+
+	it("uses max_completion_tokens for gpt-oss models", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "feat: test" } }],
+		});
+		await generateCommitMessage("some diff", { apiKey: "test_key", model: "openai/gpt-oss-20b" });
+		const callArgs = mockCreate.mock.calls[0][0];
+		expect(callArgs.max_completion_tokens).toBeGreaterThanOrEqual(1024);
+		expect(callArgs.max_tokens).toBeUndefined();
+	});
+
+	it("uses max_completion_tokens for gpt-5 models", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "feat: test" } }],
+		});
+		await generateCommitMessage("some diff", { apiKey: "test_key", model: "gpt-5-turbo" });
+		const callArgs = mockCreate.mock.calls[0][0];
+		expect(callArgs.max_completion_tokens).toBeGreaterThanOrEqual(1024);
+		expect(callArgs.max_tokens).toBeUndefined();
+	});
+
+	it("includes reasoning_format parsed in request params", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [{ message: { content: "feat: test" } }],
+		});
+		await generateCommitMessage("some diff", { apiKey: "test_key" });
+		const callArgs = mockCreate.mock.calls[0][0];
+		expect(callArgs.reasoning_format).toBe("parsed");
+	});
+
+	// ── Reasoning fallback ──
+
+	it("extracts conventional commit from reasoning when content is empty", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [
+				{
+					message: {
+						content: "",
+						reasoning: "Let me analyze... fix(auth): resolve token expiry issue",
+					},
+				},
+			],
+		});
+		const result = await generateCommitMessage("some diff", { apiKey: "test_key" });
+		expect(result).toBe("fix(auth): resolve token expiry issue");
+	});
+
+	it("falls back to first meaningful sentence from reasoning when no conventional commit", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [
+				{
+					message: {
+						content: null,
+						reasoning:
+							"I think the main change here is about adding dark mode support. Also there are some lint fixes.",
+					},
+				},
+			],
+		});
+		const result = await generateCommitMessage("some diff", { apiKey: "test_key" });
+		expect(result).toBe("I think the main change here is about adding dark mode support");
+	});
+
+	it("throws when both content and reasoning are empty", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [
+				{
+					message: {
+						content: "",
+						reasoning: "",
+					},
+				},
+			],
+		});
+		await expect(generateCommitMessage("some diff", { apiKey: "test_key" })).rejects.toThrow(
+			"AI returned an empty commit message",
+		);
+	});
+
+	it("strips think tags from reasoning-derived message", async () => {
+		mockCreate.mockResolvedValue({
+			choices: [
+				{
+					message: {
+						content: null,
+						reasoning: "<think>should I use feat or fix?</think> feat: add caching layer",
+					},
+				},
+			],
+		});
+		const result = await generateCommitMessage("some diff", { apiKey: "test_key" });
+		expect(result).toBe("feat: add caching layer");
 	});
 });
