@@ -123,7 +123,9 @@ export async function commitCommand(flags: CommitFlags) {
 
 		s.start("Generating commit message...");
 		try {
+			const genStart = Date.now();
 			message = await generateMessage(diff.diff, flags.hint);
+			debug("generateMessage took %d ms", Date.now() - genStart);
 			debug("Generated message:", message);
 		} catch (err) {
 			s.stop(red("Failed to generate message."));
@@ -215,7 +217,14 @@ export async function commitCommand(flags: CommitFlags) {
 async function generateMessage(diff: string, hint?: string): Promise<string> {
 	const config = await readConfig();
 	const apiKey = await getApiKey();
-	debug("Generating message with model:", config.model, "max-length:", config["max-length"], "type:", config.type);
+	debug(
+		"Generating message with model:",
+		config.model,
+		"max-length:",
+		config["max-length"],
+		"type:",
+		config.type,
+	);
 
 	return generateCommitMessage(diff, {
 		apiKey,

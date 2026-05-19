@@ -132,12 +132,20 @@ export async function generateCommitMessage(
 		hint?: string;
 	},
 ): Promise<string> {
-	debug("generateCommitMessage: model=%s, maxLength=%s, type=%s, hint=%s",
-		options.model ?? "default", options.maxLength ?? "default", options.type ?? "none", options.hint ?? "none");
+	debug(
+		"generateCommitMessage: model=%s, maxLength=%s, type=%s, hint=%s",
+		options.model ?? "default",
+		options.maxLength ?? "default",
+		options.type ?? "none",
+		options.hint ?? "none",
+	);
+
+	const timeoutMs = options.timeout ?? 60000;
+	debug("Timeout: %d ms", timeoutMs);
 
 	const client = new Groq({
 		apiKey: options.apiKey,
-		timeout: options.timeout ?? 60000,
+		timeout: timeoutMs,
 	});
 
 	const compressedDiff = compressDiff(diff);
@@ -147,34 +155,75 @@ export async function generateCommitMessage(
 
 	debug("Diff: %d chars → compressed to %d chars", diff.length, compressedDiff.length);
 	debug("Stat summary:\n%s", statSummary);
+	debug("User prompt length: %d chars", userPrompt.length);
 
 	async function callAI(strictSystemPrompt?: string): Promise<string> {
-		debug("Calling AI with model:", options.model ?? "openai/gpt-oss-20b");
-		const completion = await client.chat.completions.create({
-			messages: [
-				{ role: "system", content: strictSystemPrompt ?? systemPrompt },
-				{ role: "user", content: userPrompt },
-			],
-			model: options.model ?? "openai/gpt-oss-20b",
-			temperature: 0.3,
-			max_tokens: 300,
-		});
+		const callStart = Date.now();
+		const isRetry = !!strictSystemPrompt;
+		debug(
+			"callAI: %s — model=%s, promptLen=%d, systemLen=%d",
+			isRetry ? "RETRY (strict)" : "INITIAL",
+			options.model ?? "openai/gpt-oss-20b",
+			userPrompt.length,
+			(strictSystemPrompt ?? systemPrompt).length,
+		);
+		try {
+			const completion = await client.chat.completions.create({
+				messages: [
+					{ role: "system", content: strictSystemPrompt ?? systemPrompt },
+					{ role: "user", content: userPrompt },
+				],
+				model: options.model ?? "openai/gpt-oss-20b",
+				temperature: 0.3,
+				max_tokens: 300,
+			});
 
-		const content = completion.choices[0]?.message?.content;
-		debug("AI response: %s", content?.slice(0, 200) ?? "(empty)");
-		return content?.trim() ?? "";
+			const elapsed = Date.now() - callStart;
+			const content = completion.choices[0]?.message?.content;
+			debug(
+				"callAI response (%d ms): choices=%d, finishReason=%s, contentLen=%d",
+				elapsed,
+				completion.choices.length,
+				completion.choices[0]?.finish_reason ?? "(none)",
+				content?.length ?? 0,
+			);
+			debug("callAI raw content: %s", content?.slice(0, 300) ?? "(empty)");
+			return content?.trim() ?? "";
+		} catch (error) {
+			const elapsed = Date.now() - callStart;
+			debug(
+				"callAI FAILED after %d ms: %s",
+				elapsed,
+				error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+			);
+			throw error;
+		}
 	}
 
 	try {
+		const totalStart = Date.now();
 		let message = await callAI();
+		debug(
+			"Validation: message=%s, isValid=%s",
+			message.slice(0, 100),
+			isValidConventionalCommit(message),
+		);
 
 		if (!isValidConventionalCommit(message)) {
-			debug("Message not valid conventional commit, retrying with strict prompt");
+			debug(
+				"Initial message failed conventional commit validation, retrying with strict prompt (elapsed: %d ms)",
+				Date.now() - totalStart,
+			);
 			const retryMessage = await callAI(
 				"You MUST output ONLY a valid conventional commit message. " +
 					"Format: type(scope): description. " +
 					"If you output anything else your response will be rejected.\n" +
 					"Valid types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test.",
+			);
+			debug(
+				"Retry validation: message=%s, isValid=%s",
+				retryMessage.slice(0, 100),
+				isValidConventionalCommit(retryMessage),
 			);
 			if (isValidConventionalCommit(retryMessage)) {
 				debug("Retry produced valid conventional commit");
@@ -185,7 +234,7 @@ export async function generateCommitMessage(
 		}
 
 		const result = enforceMaxLength(message, options.maxLength);
-		debug("Final message: %s", result);
+		debug("Final message (%d ms total): %s", Date.now() - totalStart, result);
 		return result;
 	} catch (error) {
 		debug("AI error: %s", error instanceof Error ? error.message : String(error));
