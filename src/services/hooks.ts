@@ -165,3 +165,85 @@ export function formatErrorReport(errors: HookError[]): string {
 	const sections = errors.map((e) => `[${e.tool}]\n${e.message}`);
 	return sections.join("\n\n");
 }
+
+// ── Tool check parsing (success case) ──────────────────────────────
+
+export interface ToolCheck {
+	tool: string;
+	ok: boolean;
+}
+
+/**
+ * Parse lint-staged/hook stderr output to discover which tools ran
+ * and whether they succeeded. Used for clean post-commit summary.
+ */
+export function parseToolChecks(stderr: string): ToolCheck[] {
+	if (!stderr) return [];
+
+	const checks: ToolCheck[] = [];
+	// Match [COMPLETED] and [FAILED] status lines from lint-staged
+	const pattern = /\[(COMPLETED|FAILED)\]\s+(.+)/g;
+	let match: RegExpExecArray | null;
+
+	while ((match = pattern.exec(stderr)) !== null) {
+		const status = match[1];
+		const command = match[2].trim();
+
+		if (isLintStagedMeta(command)) continue;
+
+		const tool = extractToolName(command);
+		if (!tool) continue;
+
+		checks.push({ tool, ok: status === "COMPLETED" });
+	}
+
+	// Deduplicate by tool name (keep last occurrence — final status)
+	const seen = new Map<string, ToolCheck>();
+	for (const c of checks) {
+		seen.set(c.tool, c);
+	}
+
+	return [...seen.values()];
+}
+
+/** Heuristic: skip lint-staged internal metadata lines */
+function isLintStagedMeta(command: string): boolean {
+	// Glob patterns in task labels
+	if (/[*{}[\]]/.test(command)) return true;
+	// Task count labels: "src/ — 3 files", "src/ — no files"
+	// The dash can be em-dash (—), en-dash (–), or plain hyphen (-)
+	if (/\s[-–—]\s(\d+\s)?files?$/.test(command)) return true;
+	if (/\s[-–—]\sno\s files$/.test(command)) return true;
+	// Internal lint-staged lifecycle messages
+	if (/^(Running tasks|Applying modifications|Cleaning up|Backing up|Backed up|Updating Git)/.test(command)) return true;
+	// Ends with ellipsis (e.g. "Backing up original state...")
+	if (/\.{3}$/.test(command)) return true;
+	return false;
+}
+
+/** Extract a display-friendly tool name from a lint-staged command */
+function extractToolName(command: string): string | null {
+	const tokens = command.split(/\s+/);
+	const first = tokens[0];
+
+	// npm/yarn/pnpm run <script>
+	if (["npm", "yarn", "pnpm", "bun"].includes(first)) {
+		// Skip "run" if present
+		const scriptIdx = tokens[1] === "run" ? 2 : 1;
+		const script = tokens[scriptIdx];
+		if (!script) return null;
+		// Map common script names to their underlying tool
+		const scriptMap: Record<string, string> = {
+			typecheck: "tsc",
+			lint: "eslint",
+			format: "prettier",
+		};
+		return scriptMap[script] ?? script;
+	}
+
+	// npx <tool>
+	if (first === "npx") return tokens[1] ?? null;
+
+	// Direct tool invocation (biome, eslint, tsc, vitest, jest, prettier)
+	return first;
+}

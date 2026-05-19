@@ -78,6 +78,7 @@ export async function getStatusShort() {
 export interface CommitResult {
 	ok: boolean;
 	error?: string;
+	/** Collected stderr from hooks/lint-staged — set on both success and failure */
 	stderr?: string;
 }
 
@@ -89,18 +90,16 @@ export async function attemptCommit(
 	try {
 		const subprocess = execa("git", ["commit", "-m", message, ...extraArgs]);
 
-		// Stream hook output (lint-staged, biome, etc.) to the terminal in real-time
-		// while also collecting it for error reporting
+		// Collect hook output (lint-staged, biome, etc.) for post-commit display
+		// We don't stream to the terminal — the success/failure result is enough
 		const stderrChunks: string[] = [];
 		subprocess.stderr?.on("data", (chunk: Buffer) => {
-			const text = chunk.toString();
-			stderrChunks.push(text);
-			process.stderr.write(chunk);
+			stderrChunks.push(chunk.toString());
 		});
 
 		await subprocess;
 		debug("attemptCommit: success");
-		return { ok: true };
+		return { ok: true, stderr: stderrChunks.join("") };
 	} catch (error) {
 		const e = error as ExecaError;
 		debug("attemptCommit: failed —", e.message?.slice(0, 200));

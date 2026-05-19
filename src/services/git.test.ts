@@ -67,25 +67,21 @@ function createMockSubprocess(options?: { stderrLines?: string[] }) {
 }
 
 describe("attemptCommit", () => {
-	it("streams hook stderr to process.stderr in real-time", async () => {
+	it("collects hook stderr in CommitResult on success", async () => {
 		const lintStagedOutput = [
-			"✔ Backed up original state in git stash (abc123)",
-			"✔ Running tasks for staged files...",
-			"✔ Updating Git index again...",
-			"✔ Cleaning up temporary files...",
+			"[STARTED] biome check --write",
+			"[COMPLETED] biome check --write",
+			"[STARTED] npm run typecheck",
+			"[COMPLETED] npm run typecheck",
 		];
 
 		mockExeca.mockReturnValue(createMockSubprocess({ stderrLines: lintStagedOutput }));
 
-		const result = await attemptCommit("feat: add streaming");
+		const result = await attemptCommit("feat: add checks");
 
 		expect(result.ok).toBe(true);
-
-		// Verify stderr was streamed to process.stderr
-		const fullOutput = stderrChunks.join("");
-		for (const line of lintStagedOutput) {
-			expect(fullOutput).toContain(line);
-		}
+		expect(result.stderr).toContain("biome check --write");
+		expect(result.stderr).toContain("npm run typecheck");
 	});
 
 	it("captures stderr in result on failure", async () => {

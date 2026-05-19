@@ -11,7 +11,7 @@ import {
 	getStatusShort,
 	stageAll,
 } from "../services/git.js";
-import { parseHookErrors } from "../services/hooks.js";
+import { parseHookErrors, parseToolChecks } from "../services/hooks.js";
 import { showRecoveryMenu } from "../ui/menu.js";
 import { loadCachedCommit, saveCachedCommit } from "../utils/cache.js";
 import { debug } from "../utils/debug.js";
@@ -47,6 +47,12 @@ export async function commitCommand(flags: CommitFlags) {
 		s.stop("Attempted commit");
 		debug("Retry commit result:", result);
 		if (result.ok) {
+			// Show clean tool check summary
+			const checks = parseToolChecks(result.stderr ?? "");
+			if (checks.length > 0) {
+				const lines = checks.map((c) => `  ${c.ok ? green("✓") : red("✗")} ${c.tool}`);
+				log.info(lines.join("\n"));
+			}
 			outro(green("Committed successfully."));
 		} else {
 			const errors = parseHookErrors(result.stderr ?? "");
@@ -185,6 +191,14 @@ export async function commitCommand(flags: CommitFlags) {
 
 	if (result.ok || headBefore !== headAfter) {
 		s.stop("Committed successfully.");
+
+		// Show clean tool check summary
+		const checks = parseToolChecks(result.stderr ?? "");
+		if (checks.length > 0) {
+			const lines = checks.map((c) => `  ${c.ok ? green("✓") : red("✗")} ${c.tool}`);
+			log.info(lines.join("\n"));
+		}
+
 		outro(green("Done."));
 		return;
 	}

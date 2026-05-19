@@ -28,6 +28,7 @@ vi.mock("../services/git.js", () => ({
 
 vi.mock("../services/hooks.js", () => ({
 	parseHookErrors: vi.fn(() => []),
+	parseToolChecks: vi.fn(() => []),
 }));
 
 vi.mock("../ui/menu.js", () => ({
