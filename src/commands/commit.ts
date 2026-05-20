@@ -310,19 +310,11 @@ export async function commitCommand(flags: CommitFlags) {
 async function generateMessage(diff: string, hint?: string): Promise<string> {
 	const config = await readConfig();
 	const apiKey = await getApiKey();
-	debug(
-		"Generating message with model:",
-		config.model,
-		"max-length:",
-		config["max-length"],
-		"type:",
-		config.type,
-	);
+	debug("Generating message with model:", config.model, "type:", config.type);
 
 	return generateCommitMessage(diff, {
 		apiKey,
 		model: config.model,
-		maxLength: config["max-length"] ? parseInt(config["max-length"], 10) : undefined,
 		type: config.type,
 		timeout: config.timeout ? parseInt(config.timeout, 10) : undefined,
 		hint,

@@ -129,13 +129,6 @@ function isValidConventionalCommit(message: string): boolean {
 	return CONVENTIONAL_COMMIT_REGEX.test(message);
 }
 
-function enforceMaxLength(message: string, maxLength?: number): string {
-	if (!maxLength || message.length <= maxLength) {
-		return message;
-	}
-	return `${message.slice(0, maxLength - 3)}...`;
-}
-
 function extractContentText(
 	content: string | Array<{ type: string; text?: string }> | null | undefined,
 ): string {
@@ -156,16 +149,14 @@ export async function generateCommitMessage(
 	options: {
 		apiKey: string;
 		model?: string;
-		maxLength?: number;
 		type?: string;
 		timeout?: number;
 		hint?: string;
 	},
 ): Promise<string> {
 	debug(
-		"generateCommitMessage: model=%s, maxLength=%s, type=%s, hint=%s",
+		"generateCommitMessage: model=%s, type=%s, hint=%s",
 		options.model ?? "default",
-		options.maxLength ?? "default",
 		options.type ?? "none",
 		options.hint ?? "none",
 	);
@@ -285,9 +276,8 @@ export async function generateCommitMessage(
 			}
 		}
 
-		const result = enforceMaxLength(message, options.maxLength);
-		debug("Final message (%d ms total): %s", Date.now() - totalStart, result);
-		return result;
+		debug("Final message (%d ms total): %s", Date.now() - totalStart, message);
+		return message;
 	} catch (error) {
 		debug("AI error: %s", error instanceof Error ? error.message : String(error));
 		if (error instanceof Groq.AuthenticationError) {

@@ -151,7 +151,6 @@ describe("commitCommand", () => {
 		vi.mocked(getApiKey).mockResolvedValue("gsk_test_key");
 		vi.mocked(readConfig).mockResolvedValue({
 			model: "openai/gpt-oss-20b",
-			"max-length": "100",
 			type: "feat",
 			timeout: "30000",
 			locale: "en",
@@ -165,7 +164,6 @@ describe("commitCommand", () => {
 		expect(generateCommitMessage).toHaveBeenCalledWith("some diff content", {
 			apiKey: "gsk_test_key",
 			model: "openai/gpt-oss-20b",
-			maxLength: 100,
 			type: "feat",
 			timeout: 30000,
 			hint: "refactor auth",
@@ -183,7 +181,7 @@ describe("commitCommand", () => {
 		vi.mocked(getApiKey).mockResolvedValue("gsk_test_key");
 		vi.mocked(readConfig).mockResolvedValue({
 			model: "openai/gpt-oss-20b",
-			"max-length": "100",
+
 			locale: "en",
 		});
 		vi.mocked(generateCommitMessage).mockRejectedValue(new Error("Groq API error: rate limit"));
@@ -234,7 +232,7 @@ describe("commitCommand", () => {
 		vi.mocked(getApiKey).mockResolvedValue("gsk_test_key");
 		vi.mocked(readConfig).mockResolvedValue({
 			model: "openai/gpt-oss-20b",
-			"max-length": "100",
+
 			locale: "en",
 		});
 		vi.mocked(generateCommitMessage).mockResolvedValue("feat: test");

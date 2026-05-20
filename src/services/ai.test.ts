@@ -312,19 +312,6 @@ describe("generateCommitMessage", () => {
 		expect(mockCreate).toHaveBeenCalledTimes(1);
 	});
 
-	it("enforces maxLength by truncating long messages", async () => {
-		mockCreate.mockResolvedValue({
-			choices: [{ message: { content: "a".repeat(150) } }],
-		});
-
-		const result = await generateCommitMessage("some diff", {
-			apiKey: "test_key",
-			maxLength: 50,
-		});
-
-		expect(result).toBe(`${"a".repeat(47)}...`);
-	});
-
 	it("throws clear API key message on AuthenticationError", async () => {
 		const { default: Groq } = await import("groq-sdk");
 		mockCreate.mockRejectedValue(new Groq.AuthenticationError(401, {}, "Unauthorized", {}));
