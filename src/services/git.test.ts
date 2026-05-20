@@ -1,6 +1,12 @@
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attemptCommit, attemptCommitNoVerify, getStagedDiff } from "./git.js";
+import {
+	attemptCommit,
+	attemptCommitNoVerify,
+	getChangedFiles,
+	getStagedDiff,
+	stageFiles,
+} from "./git.js";
 
 // Mock execa
 const mockExeca = vi.fn();
@@ -187,5 +193,43 @@ describe("getStagedDiff", () => {
 		const result = await getStagedDiff();
 
 		expect(result).toEqual({ excludedFiles: ["package-lock.json", "pnpm-lock.yaml"] });
+	});
+});
+
+describe("getChangedFiles", () => {
+	it("returns empty array when no changes", async () => {
+		mockExeca.mockResolvedValue({ stdout: "" });
+		const result = await getChangedFiles();
+		expect(result).toEqual([]);
+	});
+
+	it("parses status short output into ChangedFile array", async () => {
+		mockExeca.mockResolvedValue({ stdout: "M  src/foo.ts\n?? src/new.ts\n D src/old.ts" });
+		const result = await getChangedFiles();
+		expect(result).toEqual([
+			{ status: "M", path: "src/foo.ts" },
+			{ status: "??", path: "src/new.ts" },
+			{ status: "D", path: "src/old.ts" },
+		]);
+	});
+
+	it("calls git status --short", async () => {
+		mockExeca.mockResolvedValue({ stdout: "" });
+		await getChangedFiles();
+		expect(mockExeca).toHaveBeenCalledWith("git", ["status", "--short"]);
+	});
+});
+
+describe("stageFiles", () => {
+	it("stages specific files", async () => {
+		mockExeca.mockResolvedValue({ stdout: "" });
+		await stageFiles(["src/foo.ts", "src/bar.ts"]);
+		expect(mockExeca).toHaveBeenCalledWith("git", ["add", "src/foo.ts", "src/bar.ts"]);
+	});
+
+	it("stages a single file", async () => {
+		mockExeca.mockResolvedValue({ stdout: "" });
+		await stageFiles(["src/foo.ts"]);
+		expect(mockExeca).toHaveBeenCalledWith("git", ["add", "src/foo.ts"]);
 	});
 });

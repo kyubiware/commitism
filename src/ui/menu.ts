@@ -1,8 +1,71 @@
 import * as p from "@clack/prompts";
 import { bold, cyan, dim, green, red, yellow } from "kolorist";
 import { copyToClipboard } from "../services/clipboard.js";
+import type { ChangedFile } from "../services/git.js";
 import type { HookError } from "../services/hooks.js";
 import { debug } from "../utils/debug.js";
+
+export interface StagingChoice {
+	files: string[]; // selected file paths to stage
+	all: boolean; // whether user chose "Stage all"
+}
+
+export async function showStagingMenu(files: ChangedFile[]): Promise<StagingChoice | null> {
+	debug("showStagingMenu: %d files", files.length);
+
+	// Build status labels with kolorist colors
+	const statusLabel = (status: string): string => {
+		switch (status) {
+			case "M":
+				return yellow("M");
+			case "A":
+				return green("A");
+			case "D":
+				return red("D");
+			case "?":
+				return dim("?");
+			default:
+				return dim(status);
+		}
+	};
+
+	const choice = await p.select({
+		message: "Stage files for commit:",
+		options: [
+			{
+				label: "Stage all files",
+				value: "all",
+				hint: `${files.length} file${files.length !== 1 ? "s" : ""}`,
+			},
+			{ label: "Select files...", value: "select" },
+			{ label: "Cancel", value: "cancel" },
+		],
+	});
+
+	if (p.isCancel(choice) || choice === "cancel") {
+		return null;
+	}
+
+	if (choice === "all") {
+		return { files: files.map((f) => f.path), all: true };
+	}
+
+	// Multi-select
+	const selected = await p.multiselect({
+		message: "Select files to stage:",
+		options: files.map((f) => ({
+			label: `${statusLabel(f.status)}  ${f.path}`,
+			value: f.path,
+		})),
+		required: true,
+	});
+
+	if (p.isCancel(selected)) {
+		return null;
+	}
+
+	return { files: selected as string[], all: false };
+}
 
 export async function showRecoveryMenu(
 	errors: HookError[],

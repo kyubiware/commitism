@@ -31,6 +31,11 @@ export interface ExcludedFilesResult {
 
 export type DiffResult = StagedDiffResult | ExcludedFilesResult | null;
 
+export interface ChangedFile {
+	path: string;
+	status: string;
+}
+
 const DEFAULT_EXCLUDES = [
 	"package-lock.json",
 	"node_modules/**",
@@ -101,6 +106,26 @@ export async function getHead() {
 export async function getStatusShort() {
 	const { stdout } = await execa("git", ["status", "--short"]);
 	return stdout.trim();
+}
+
+export async function getChangedFiles(): Promise<ChangedFile[]> {
+	const { stdout } = await execa("git", ["status", "--short"]);
+	if (!stdout.trim()) return [];
+	const files = stdout
+		.trim()
+		.split("\n")
+		.filter(Boolean)
+		.map((line) => ({
+			status: line.slice(0, 2).trim(),
+			path: line.slice(3),
+		}));
+	debug("getChangedFiles:", files.length, "files");
+	return files;
+}
+
+export async function stageFiles(paths: string[]): Promise<void> {
+	debug("stageFiles:", paths);
+	await execa("git", ["add", ...paths]);
 }
 
 export interface CommitResult {

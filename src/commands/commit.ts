@@ -6,14 +6,16 @@ import {
 	assertGitRepo,
 	attemptCommit,
 	attemptCommitNoVerify,
+	getChangedFiles,
 	getDefaultExcludes,
 	getHead,
 	getStagedDiff,
 	getStatusShort,
 	stageAll,
+	stageFiles,
 } from "../services/git.js";
 import { parseHookErrors, parseToolChecks } from "../services/hooks.js";
-import { showRecoveryMenu } from "../ui/menu.js";
+import { showRecoveryMenu, showStagingMenu } from "../ui/menu.js";
 import { loadCachedCommit, saveCachedCommit } from "../utils/cache.js";
 import { debug } from "../utils/debug.js";
 
@@ -83,11 +85,38 @@ export async function commitCommand(flags: CommitFlags) {
 		return;
 	}
 
-	// Stage all changes
+	// Stage changes
+	const changedFiles = await getChangedFiles();
+	debug("Changed files:", changedFiles.length);
 	const s = spinner();
-	s.start("Staging all changes...");
-	await stageAll();
-	s.stop("Changes staged");
+
+	if (flags.all) {
+		// --all flag: auto-stage everything (original behavior)
+		s.start("Staging all changes...");
+		await stageAll();
+		s.stop("Changes staged");
+	} else if (changedFiles.length === 1) {
+		// Single file: auto-stage it
+		s.start(`Staging ${changedFiles[0].path}...`);
+		await stageFiles([changedFiles[0].path]);
+		s.stop("File staged");
+	} else {
+		// Multiple files: show interactive staging menu
+		const stagingResult = await showStagingMenu(changedFiles);
+		if (!stagingResult) {
+			outro(dim("Cancelled."));
+			return;
+		}
+		s.start(
+			`Staging ${stagingResult.files.length} file${stagingResult.files.length !== 1 ? "s" : ""}...`,
+		);
+		if (stagingResult.all) {
+			await stageAll();
+		} else {
+			await stageFiles(stagingResult.files);
+		}
+		s.stop("Files staged");
+	}
 
 	// Get diff for AI
 	const diffResult = await getStagedDiff();
