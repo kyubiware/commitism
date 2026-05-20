@@ -66,6 +66,7 @@ export async function commitCommand(flags: CommitFlags) {
 					return (await attemptCommit(cached.message)).ok;
 				},
 				cached.message,
+				result.stderr ?? "",
 			);
 		}
 		return;
@@ -225,6 +226,7 @@ export async function commitCommand(flags: CommitFlags) {
 			return r.ok;
 		},
 		message,
+		result.stderr ?? "",
 	);
 }
 

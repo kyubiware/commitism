@@ -6,7 +6,7 @@ vi.mock("@clack/prompts", () => ({
 	note: vi.fn(),
 	select: vi.fn(),
 	outro: vi.fn(),
-	log: { info: vi.fn(), step: vi.fn() },
+	log: { info: vi.fn(), step: vi.fn(), warn: vi.fn() },
 	isCancel: vi.fn(() => false),
 	text: vi.fn(),
 }));
@@ -15,9 +15,7 @@ vi.mock("../services/clipboard.js", () => ({
 	copyToClipboard: vi.fn(),
 }));
 
-vi.mock("../services/hooks.js", () => ({
-	formatErrorReport: vi.fn(() => "formatted error report"),
-}));
+vi.mock("../services/hooks.js", () => ({}));
 
 vi.mock("../utils/debug.js", () => ({
 	debug: vi.fn(),
@@ -33,6 +31,8 @@ const mockErrors = [
 		raw: "src/foo.ts:1:1 — unused variable",
 	},
 ];
+
+const mockRawStderr = "raw stderr output from hooks";
 
 describe("showRecoveryMenu", () => {
 	beforeEach(() => {
@@ -53,13 +53,14 @@ describe("showRecoveryMenu", () => {
 			async () => false,
 			async () => false,
 			"test message",
+			mockRawStderr,
 		);
 
 		// Should show the menu at least twice (clipboard + cancel)
 		expect(select).toHaveBeenCalledTimes(2);
 
-		// Should have called copyToClipboard
-		expect(copyToClipboard).toHaveBeenCalledWith("formatted error report");
+		// Should have called copyToClipboard with raw stderr
+		expect(copyToClipboard).toHaveBeenCalledWith(mockRawStderr);
 
 		// process.exit should only be called once (from the "cancel" case), NOT from clipboard
 		expect(exitSpy).toHaveBeenCalledTimes(1);
@@ -80,6 +81,7 @@ describe("showRecoveryMenu", () => {
 			async () => false,
 			async () => false,
 			"test message",
+			mockRawStderr,
 		);
 
 		// log.step should be called with a success message for clipboard
@@ -98,10 +100,11 @@ describe("showRecoveryMenu", () => {
 			async () => false,
 			async () => false,
 			"test message",
+			mockRawStderr,
 		);
 
 		// Should show error about missing clipboard tool
-		expect(log.step).toHaveBeenCalledWith(expect.stringContaining("clipboard tool"));
+		expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("clipboard tool"));
 	});
 
 	it("should allow user to take another action after copying to clipboard", async () => {
@@ -120,6 +123,7 @@ describe("showRecoveryMenu", () => {
 			onSkipHooks,
 			async () => false,
 			"test message",
+			mockRawStderr,
 		);
 
 		// Should have called both clipboard and skip hooks
