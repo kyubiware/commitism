@@ -24,6 +24,19 @@ vi.mock("../services/git.js", () => ({
 	attemptCommitNoVerify: vi.fn(),
 	getStatusShort: vi.fn(),
 	getRepoRoot: vi.fn(),
+	getDefaultExcludes: vi.fn(() => [
+		"package-lock.json",
+		"node_modules/**",
+		"dist/**",
+		"build/**",
+		".next/**",
+		"coverage/**",
+		"*.log",
+		"*.min.js",
+		"*.min.css",
+		"*.lock",
+		".DS_Store",
+	]),
 }));
 
 vi.mock("../services/hooks.js", () => ({
@@ -62,10 +75,12 @@ import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
 import {
 	attemptCommit,
 	getHead,
+	getRepoRoot,
 	getStagedDiff,
 	getStatusShort,
 	stageAll,
 } from "../services/git.js";
+import { saveCachedCommit } from "../utils/cache.js";
 
 describe("commitCommand", () => {
 	beforeEach(() => {
@@ -166,5 +181,25 @@ describe("commitCommand", () => {
 
 		const { outro } = await import("@clack/prompts");
 		expect(vi.mocked(outro)).toHaveBeenCalledWith(expect.stringContaining("rate limit"));
+	});
+
+	it("uses hardcoded message when all staged files are excluded", async () => {
+		vi.mocked(getStatusShort).mockResolvedValue("M  package-lock.json");
+		vi.mocked(stageAll).mockResolvedValue(undefined);
+		vi.mocked(getStagedDiff).mockResolvedValue({
+			excludedFiles: ["package-lock.json"],
+		});
+		vi.mocked(getRepoRoot).mockResolvedValue("/tmp/test-repo");
+		vi.mocked(attemptCommit).mockResolvedValue({ ok: true });
+		vi.mocked(getHead).mockResolvedValueOnce("abc123").mockResolvedValueOnce("def456");
+
+		await commitCommand({ retry: false, all: false });
+
+		// Should NOT call AI — message is hardcoded
+		expect(generateCommitMessage).not.toHaveBeenCalled();
+		// Should commit with a lockfile-specific message
+		expect(attemptCommit).toHaveBeenCalledWith("chore: update lockfile");
+		// Should cache the message
+		expect(saveCachedCommit).toHaveBeenCalledWith("/tmp/test-repo", "chore: update lockfile");
 	});
 });

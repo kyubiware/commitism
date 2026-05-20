@@ -1,6 +1,6 @@
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attemptCommit, attemptCommitNoVerify } from "./git.js";
+import { attemptCommit, attemptCommitNoVerify, getStagedDiff } from "./git.js";
 
 // Mock execa
 const mockExeca = vi.fn();
@@ -137,5 +137,55 @@ describe("attemptCommitNoVerify", () => {
 			"feat: bypass hooks",
 			"--no-verify",
 		]);
+	});
+});
+
+describe("getStagedDiff", () => {
+	it("returns null when nothing is staged", async () => {
+		// First call: git diff --cached --name-only (no excludes) → empty
+		mockExeca.mockResolvedValue({ stdout: "" });
+
+		const result = await getStagedDiff();
+
+		expect(result).toBeNull();
+	});
+
+	it("returns files and diff when non-excluded files are staged", async () => {
+		mockExeca
+			// First call: git diff --cached --name-only (no excludes) → finds staged files
+			.mockResolvedValueOnce({ stdout: "src/foo.ts\nsrc/bar.ts" })
+			// Second call: git diff --cached --name-only (with excludes) → same files
+			.mockResolvedValueOnce({ stdout: "src/foo.ts\nsrc/bar.ts" })
+			// Third call: git diff --cached --diff-algorithm=minimal (with excludes)
+			.mockResolvedValueOnce({ stdout: "diff content here" });
+
+		const result = await getStagedDiff();
+
+		expect(result).toEqual({
+			files: ["src/foo.ts", "src/bar.ts"],
+			diff: "diff content here",
+		});
+	});
+
+	it("returns excludedFiles when all staged files are excluded", async () => {
+		mockExeca
+			// First call: git diff --cached --name-only WITHOUT excludes → finds staged files
+			.mockResolvedValueOnce({ stdout: "package-lock.json" })
+			// Second call: git diff --cached --name-only WITH excludes → empty
+			.mockResolvedValueOnce({ stdout: "" });
+
+		const result = await getStagedDiff();
+
+		expect(result).toEqual({ excludedFiles: ["package-lock.json"] });
+	});
+
+	it("returns excludedFiles with multiple lockfiles", async () => {
+		mockExeca
+			.mockResolvedValueOnce({ stdout: "package-lock.json\npnpm-lock.yaml" })
+			.mockResolvedValueOnce({ stdout: "" });
+
+		const result = await getStagedDiff();
+
+		expect(result).toEqual({ excludedFiles: ["package-lock.json", "pnpm-lock.yaml"] });
 	});
 });

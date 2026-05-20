@@ -20,39 +20,67 @@ export async function getRepoRoot() {
 	return stdout.trim();
 }
 
-export async function getStagedDiff(exclude?: string[]) {
-	const excludeArgs = (exclude ?? []).map((e) => `:(exclude)${e}`);
-	const defaultExcludes = [
-		"package-lock.json",
-		"node_modules/**",
-		"dist/**",
-		"build/**",
-		".next/**",
-		"coverage/**",
-		"*.log",
-		"*.min.js",
-		"*.min.css",
-		"*.lock",
-		".DS_Store",
-	].map((e) => `:(exclude)${e}`);
+export interface StagedDiffResult {
+	files: string[];
+	diff: string;
+}
 
+export interface ExcludedFilesResult {
+	excludedFiles: string[];
+}
+
+export type DiffResult = StagedDiffResult | ExcludedFilesResult | null;
+
+const DEFAULT_EXCLUDES = [
+	"package-lock.json",
+	"node_modules/**",
+	"dist/**",
+	"build/**",
+	".next/**",
+	"coverage/**",
+	"*.log",
+	"*.min.js",
+	"*.min.css",
+	"*.lock",
+	".DS_Store",
+];
+
+export function getDefaultExcludes(): string[] {
+	return [...DEFAULT_EXCLUDES];
+}
+
+export async function getStagedDiff(exclude?: string[]): Promise<DiffResult> {
+	const excludeArgs = (exclude ?? []).map((e) => `:(exclude)${e}`);
+	const defaultExcludeArgs = DEFAULT_EXCLUDES.map((e) => `:(exclude)${e}`);
+
+	// Check all staged files without excludes to detect "all excluded" case
+	const { stdout: allFiles } = await execa("git", ["diff", "--cached", "--name-only"]);
+	if (!allFiles) {
+		debug("getStagedDiff: no staged files");
+		return null;
+	}
+
+	// Check staged files with excludes applied
 	const { stdout: files } = await execa("git", [
 		"diff",
 		"--cached",
 		"--name-only",
-		...defaultExcludes,
+		...defaultExcludeArgs,
 		...excludeArgs,
 	]);
+
 	if (!files) {
-		debug("getStagedDiff: no staged files");
-		return null;
+		// All staged files were excluded
+		const excludedFiles = allFiles.split("\n").filter(Boolean);
+		debug("getStagedDiff: all files excluded:", excludedFiles);
+		return { excludedFiles };
 	}
 
 	const { stdout: diff } = await execa("git", [
 		"diff",
 		"--cached",
 		"--diff-algorithm=minimal",
-		...defaultExcludes,
+		...defaultExcludeArgs,
 		...excludeArgs,
 	]);
 

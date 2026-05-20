@@ -6,6 +6,7 @@ import {
 	assertGitRepo,
 	attemptCommit,
 	attemptCommitNoVerify,
+	getDefaultExcludes,
 	getHead,
 	getStagedDiff,
 	getStatusShort,
@@ -89,17 +90,56 @@ export async function commitCommand(flags: CommitFlags) {
 	s.stop("Changes staged");
 
 	// Get diff for AI
-	const diff = await getStagedDiff();
-	if (!diff) {
+	const diffResult = await getStagedDiff();
+	if (!diffResult) {
 		debug("No staged changes found after staging");
 		outro(red("No staged changes found."));
 		process.exit(1);
 	}
 
-	debug("Staged files:", diff.files);
-	debug("Diff length:", diff.diff.length, "chars");
+	// Handle all-staged-files-are-excluded case with hardcoded message
+	if ("excludedFiles" in diffResult) {
+		debug("All staged files are excluded:", diffResult.excludedFiles);
+		const message = buildExcludedFilesMessage(diffResult.excludedFiles);
 
-	log.info(diff.files.map((f) => `     ${f}`).join("\n"));
+		log.info(diffResult.excludedFiles.map((f) => `     ${f}`).join("\n"));
+
+		// Cache and commit with hardcoded message
+		const { getRepoRoot } = await import("../services/git.js");
+		const repoRoot = await getRepoRoot();
+		await saveCachedCommit(repoRoot, message);
+
+		s.start("Committing...");
+		const headBefore = await getHead();
+		const result = await attemptCommit(message);
+		const headAfter = await getHead();
+
+		if (result.ok || headBefore !== headAfter) {
+			s.stop("Committed successfully.");
+			outro(green("Done."));
+			return;
+		}
+
+		s.stop("Commit failed.");
+		const errors = parseHookErrors(result.stderr ?? "");
+		await showRecoveryMenu(
+			errors,
+			async () => (await attemptCommit(message)).ok,
+			async (msg) => (await attemptCommitNoVerify(msg)).ok,
+			async () => {
+				await stageAll();
+				return (await attemptCommit(message)).ok;
+			},
+			message,
+			result.stderr ?? "",
+		);
+		return;
+	}
+
+	debug("Staged files:", diffResult.files);
+	debug("Diff length:", diffResult.diff.length, "chars");
+
+	log.info(diffResult.files.map((f) => `     ${f}`).join("\n"));
 
 	// Generate or use provided message
 	let message: string;
@@ -131,7 +171,7 @@ export async function commitCommand(flags: CommitFlags) {
 		s.start("Generating commit message...");
 		try {
 			const genStart = Date.now();
-			message = await generateMessage(diff.diff, flags.hint);
+			message = await generateMessage(diffResult.diff, flags.hint);
 			debug("generateMessage took %d ms", Date.now() - genStart);
 			debug("Generated message:", message);
 		} catch (err) {
@@ -250,4 +290,21 @@ async function generateMessage(diff: string, hint?: string): Promise<string> {
 		timeout: config.timeout ? parseInt(config.timeout, 10) : undefined,
 		hint,
 	});
+}
+
+function buildExcludedFilesMessage(files: string[]): string {
+	const excludes = getDefaultExcludes();
+	const isLockfile = (f: string) =>
+		excludes.some((pattern) => {
+			if (pattern.endsWith(".lock") || pattern.endsWith(".json")) {
+				return f === pattern || f.endsWith(pattern.replace("*.", "."));
+			}
+			return false;
+		});
+
+	if (files.every(isLockfile)) {
+		return "chore: update lockfile";
+	}
+
+	return "chore: update generated files";
 }

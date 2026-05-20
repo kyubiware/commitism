@@ -31,7 +31,7 @@ commit-mint/
 ├── biome.json                  # Biome linter/formatter config (tab indent, 100 width)
 ├── tsconfig.json               # TypeScript config (ES2022, ESNext modules, bundler resolution)
 ├── vitest.config.ts            # Vitest test runner config with v8 coverage
-├── .lintstagedrc.json          # lint-staged config: biome check, tsc, vitest run
+├── .lintstagedrc.mjs            # lint-staged config: biome check, tsc, vitest run
 ├── package.json                # Package manifest (ESM, bin: dist/cli.mjs)
 └── README.md                   # Project documentation
 ```
@@ -78,7 +78,7 @@ commit-mint/
 
 **Tests:** Co-located `*.test.ts` siblings in `src/commands/`, `src/services/`, `src/utils/`
 
-**Lint config:** `biome.json`: Tab indentation, 100 character line width. `.lintstagedrc.json`: Runs biome check, tsc, and vitest on staged ts files
+**Lint config:** `biome.json`: Tab indentation, 100 character line width. `.lintstagedrc.mjs`: Runs biome check, tsc, and vitest on staged ts files
 
 **TypeScript config:** `tsconfig.json`: ES2022 target, ESNext modules, bundler resolution, strict mode, output to `dist/`
 
