@@ -8,6 +8,12 @@ fi
 
 BUMP="$1"
 
+DIRTY="$(git status --porcelain)"
+if [ -n "$DIRTY" ]; then
+	echo "Working tree is not clean. Commit or stash changes first."
+	exit 1
+fi
+
 echo "Running CI checks..."
 npm run lint
 npm run typecheck
@@ -15,13 +21,11 @@ npm run test
 npm run build
 
 echo "Bumping version ($BUMP)..."
-npm version "$BUMP" -m "chore: release v%s"
+NEW_VERSION="$(npm version "$BUMP" -m "chore: release v%s" | tr -d '\n')"
 
 echo "Pushing commit + tag..."
-git push --follow-tags
+git push
+git push origin "$NEW_VERSION"
 
-TAG="v$(node -p 'require("./package.json").version')"
-echo "Creating GitHub release $TAG..."
-gh release create "$TAG" --title "$TAG" --generate-notes
-
-echo "Released $TAG!"
+echo "Released $NEW_VERSION"
+echo "https://github.com/kyubiware/commit-mint/actions"
