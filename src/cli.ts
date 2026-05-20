@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cli, command } from "cleye";
+import { cli } from "cleye";
 import pkg from "../package.json" with { type: "json" };
 
 const { version } = pkg;

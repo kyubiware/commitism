@@ -1,7 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import { join } from "node:path";
-import { execa } from "execa";
 import ini from "ini";
 import { debug } from "../utils/debug.js";
 

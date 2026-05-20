@@ -1,4 +1,3 @@
-import type { ExecaError } from "execa";
 import { debug } from "../utils/debug.js";
 
 export interface HookError {
@@ -16,7 +15,6 @@ export function parseHookErrors(stderr: string): HookError[] {
 
 	debug("parseHookErrors: stderr length=%d", stderr.length);
 	const errors: HookError[] = [];
-	const lines = stderr.split("\n");
 
 	// Detect lint-staged task failures
 	if (stderr.includes("lint-staged") || stderr.includes("[FAILED]")) {
@@ -64,10 +62,7 @@ export function parseHookErrors(stderr: string): HookError[] {
 
 function parseLintStagedErrors(output: string): HookError[] {
 	const errors: HookError[] = [];
-	const taskPattern = /\[FAILED\]\s+(.+?)\s+\[FAILED\]/g;
-	let match: RegExpExecArray | null;
-
-	while ((match = taskPattern.exec(output)) !== null) {
+	for (const match of output.matchAll(/\[FAILED\]\s+(.+?)\s+\[FAILED\]/g)) {
 		const task = match[1].trim();
 		errors.push({
 			tool: "lint-staged",
@@ -81,10 +76,7 @@ function parseLintStagedErrors(output: string): HookError[] {
 
 function parseBiomeErrors(output: string): HookError[] {
 	const errors: HookError[] = [];
-	const biomePattern = /^(.+?):(\d+):(\d+)\s+(.+)$/gm;
-	let match: RegExpExecArray | null;
-
-	while ((match = biomePattern.exec(output)) !== null) {
+	for (const match of output.matchAll(/^(.+?):(\d+):(\d+)\s+(.+)$/gm)) {
 		errors.push({
 			tool: "biome",
 			message: `${match[1]}:${match[2]}:${match[3]} — ${match[4]}`,
@@ -105,10 +97,7 @@ function parseBiomeErrors(output: string): HookError[] {
 
 function parseTscErrors(output: string): HookError[] {
 	const errors: HookError[] = [];
-	const tscPattern = /^(.+?)\((\d+),(\d+)\):\s+error\s+(TS\d+):\s+(.+)$/gm;
-	let match: RegExpExecArray | null;
-
-	while ((match = tscPattern.exec(output)) !== null) {
+	for (const match of output.matchAll(/^(.+?)\((\d+),(\d+)\):\s+error\s+(TS\d+):\s+(.+)$/gm)) {
 		errors.push({
 			tool: "tsc",
 			message: `${match[1]}:${match[2]}:${match[3]} — ${match[4]}: ${match[5]}`,
@@ -145,10 +134,7 @@ function parseTestErrors(output: string): HookError[] {
 
 function parseEslintErrors(output: string): HookError[] {
 	const errors: HookError[] = [];
-	const eslintPattern = /^\s*\d+:(\d+)\s+(error|warning)\s+(.+?)\s+(.+?)$/gm;
-	let match: RegExpExecArray | null;
-
-	while ((match = eslintPattern.exec(output)) !== null) {
+	for (const match of output.matchAll(/^\s*\d+:(\d+)\s+(error|warning)\s+(.+?)\s+(.+?)$/gm)) {
 		errors.push({
 			tool: "eslint",
 			message: `${match[2]}: ${match[3]} (${match[4]})`,
@@ -182,10 +168,7 @@ export function parseToolChecks(stderr: string): ToolCheck[] {
 
 	const checks: ToolCheck[] = [];
 	// Match [COMPLETED] and [FAILED] status lines from lint-staged
-	const pattern = /\[(COMPLETED|FAILED)\]\s+(.+)/g;
-	let match: RegExpExecArray | null;
-
-	while ((match = pattern.exec(stderr)) !== null) {
+	for (const match of stderr.matchAll(/\[(COMPLETED|FAILED)\]\s+(.+)/g)) {
 		const status = match[1];
 		const command = match[2].trim();
 
@@ -215,7 +198,12 @@ function isLintStagedMeta(command: string): boolean {
 	if (/\s[-–—]\s(\d+\s)?files?$/.test(command)) return true;
 	if (/\s[-–—]\sno\s files$/.test(command)) return true;
 	// Internal lint-staged lifecycle messages
-	if (/^(Running tasks|Applying modifications|Cleaning up|Backing up|Backed up|Updating Git)/.test(command)) return true;
+	if (
+		/^(Running tasks|Applying modifications|Cleaning up|Backing up|Backed up|Updating Git)/.test(
+			command,
+		)
+	)
+		return true;
 	// Ends with ellipsis (e.g. "Backing up original state...")
 	if (/\.{3}$/.test(command)) return true;
 	return false;
