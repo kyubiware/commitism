@@ -1,35 +1,22 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
 
 jobs:
-  ci:
+  release:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: npm
-
-      - run: npm ci
-
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run build
-
-  publish:
-    needs: ci
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -38,4 +25,34 @@ jobs:
 
       - run: npm ci
 
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
       - run: npm publish --provenance --access public
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PREV_TAG=$(git tag --list 'v*' --sort=-version:refname | head -2 | tail -1)
+          if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "$TAG" ]; then
+            LOG=$(git log "${PREV_TAG}..${TAG}" --pretty=format:"- %s (%h)")
+          else
+            LOG=$(git log "${TAG}" --pretty=format:"- %s (%h)")
+          fi
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$LOG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
+            ## Changes
+            ${{ steps.changelog.outputs.body }}
+          draft: false
+          prerelease: false
