@@ -213,6 +213,12 @@ describe("getChangedFiles", () => {
 		]);
 	});
 
+	it("parses worktree-modified files with leading space in status", async () => {
+		mockExeca.mockResolvedValue({ stdout: " M src/commands/commit.ts" });
+		const result = await getChangedFiles();
+		expect(result).toEqual([{ status: "M", path: "src/commands/commit.ts" }]);
+	});
+
 	it("calls git status --short", async () => {
 		mockExeca.mockResolvedValue({ stdout: "" });
 		await getChangedFiles();

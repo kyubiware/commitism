@@ -112,7 +112,6 @@ export async function getChangedFiles(): Promise<ChangedFile[]> {
 	const { stdout } = await execa("git", ["status", "--short"]);
 	if (!stdout.trim()) return [];
 	const files = stdout
-		.trim()
 		.split("\n")
 		.filter(Boolean)
 		.map((line) => ({

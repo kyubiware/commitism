@@ -90,32 +90,40 @@ export async function commitCommand(flags: CommitFlags) {
 	debug("Changed files:", changedFiles.length);
 	const s = spinner();
 
-	if (flags.all) {
-		// --all flag: auto-stage everything (original behavior)
-		s.start("Staging all changes...");
-		await stageAll();
-		s.stop("Changes staged");
-	} else if (changedFiles.length === 1) {
-		// Single file: auto-stage it
-		s.start(`Staging ${changedFiles[0].path}...`);
-		await stageFiles([changedFiles[0].path]);
-		s.stop("File staged");
-	} else {
-		// Multiple files: show interactive staging menu
-		const stagingResult = await showStagingMenu(changedFiles);
-		if (!stagingResult) {
-			outro(dim("Cancelled."));
-			return;
-		}
-		s.start(
-			`Staging ${stagingResult.files.length} file${stagingResult.files.length !== 1 ? "s" : ""}...`,
-		);
-		if (stagingResult.all) {
+	try {
+		if (flags.all) {
+			// --all flag: auto-stage everything (original behavior)
+			s.start("Staging all changes...");
 			await stageAll();
+			s.stop("Changes staged");
+		} else if (changedFiles.length === 1) {
+			// Single file: auto-stage it
+			s.start(`Staging ${changedFiles[0].path}...`);
+			await stageFiles([changedFiles[0].path]);
+			s.stop("File staged");
 		} else {
-			await stageFiles(stagingResult.files);
+			// Multiple files: show interactive staging menu
+			const stagingResult = await showStagingMenu(changedFiles);
+			if (!stagingResult) {
+				outro(dim("Cancelled."));
+				return;
+			}
+			s.start(
+				`Staging ${stagingResult.files.length} file${stagingResult.files.length !== 1 ? "s" : ""}...`,
+			);
+			if (stagingResult.all) {
+				await stageAll();
+			} else {
+				await stageFiles(stagingResult.files);
+			}
+			s.stop("Files staged");
 		}
-		s.stop("Files staged");
+	} catch (err) {
+		s.stop(red("Staging failed."));
+		const msg = err instanceof Error ? err.message : String(err);
+		debug("Staging error:", msg);
+		outro(red(`Failed to stage files: ${msg}`));
+		process.exit(1);
 	}
 
 	// Get diff for AI
