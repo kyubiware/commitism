@@ -132,6 +132,7 @@ export async function showRecoveryMenu(
 				const ok = await copyToClipboard(rawStderr);
 				if (ok) {
 					clipboardCopied = true;
+					p.log.step(green("Copied to clipboard."));
 				} else {
 					p.log.warn(red("No clipboard tool found. Install xclip, wl-copy, or xsel."));
 				}

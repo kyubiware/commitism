@@ -1,11 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { copyToClipboard } from "./clipboard.js";
 
-vi.mock("execa", () => ({
-	execa: vi.fn(),
+vi.mock("node:child_process", () => ({
+	spawn: vi.fn(),
 }));
 
-import { execa } from "execa";
+import { spawn } from "node:child_process";
+
+function mockSuccessfulChild() {
+	return {
+		on: vi.fn(),
+		stdin: {
+			write: vi.fn((_content: string, cb: (err?: null) => void) => cb(null)),
+			end: vi.fn((cb: () => void) => cb()),
+		},
+		unref: vi.fn(),
+	};
+}
+
+function mockFailedChild() {
+	return {
+		on: vi.fn(),
+		stdin: {
+			write: vi.fn((_content: string, cb: (err: Error) => void) => cb(new Error("not found"))),
+			end: vi.fn(),
+		},
+		unref: vi.fn(),
+	};
+}
 
 describe("copyToClipboard", () => {
 	beforeEach(() => {
@@ -13,43 +35,35 @@ describe("copyToClipboard", () => {
 	});
 
 	it("should copy content using wl-copy when available", async () => {
-		// wl-copy found via direct execution (no separate which check)
-		vi.mocked(execa)
-			.mockResolvedValueOnce({ stdout: "" } as never) // wl-copy succeeds
-			.mockRejectedValueOnce(new Error("not found")) // xclip fails
-			.mockRejectedValueOnce(new Error("not found")) // xsel fails
-			.mockRejectedValueOnce(new Error("not found")); // pbcopy fails
-
-		// We need wl-copy to succeed, so first call is wl-copy with input
-		vi.mocked(execa).mockReset();
-		vi.mocked(execa).mockResolvedValueOnce({ stdout: "" } as never); // wl-copy succeeds with input
+		vi.mocked(spawn).mockReturnValue(mockSuccessfulChild() as never);
 
 		const result = await copyToClipboard("test content");
 
 		expect(result).toBe(true);
-		expect(execa).toHaveBeenCalledWith("wl-copy", [], {
-			input: "test content",
+		expect(spawn).toHaveBeenCalledWith("wl-copy", [], {
+			stdio: ["pipe", "ignore", "ignore"],
 		});
 	});
 
 	it("should fallback to xclip when wl-copy is not available", async () => {
-		vi.mocked(execa)
-			.mockRejectedValueOnce(new Error("wl-copy not found")) // wl-copy fails
-			.mockResolvedValueOnce({ stdout: "" } as never); // xclip succeeds
+		vi.mocked(spawn)
+			.mockReturnValueOnce(mockFailedChild() as never) // wl-copy fails
+			.mockReturnValueOnce(mockSuccessfulChild() as never); // xclip succeeds
 
 		const result = await copyToClipboard("test content");
 
 		expect(result).toBe(true);
-		expect(execa).toHaveBeenCalledWith("xclip", ["-selection", "clipboard"], {
-			input: "test content",
+		expect(spawn).toHaveBeenCalledWith("xclip", ["-selection", "clipboard"], {
+			stdio: ["pipe", "ignore", "ignore"],
 		});
 	});
 
 	it("should try all tools and return false when none are available", async () => {
-		vi.mocked(execa).mockRejectedValue(new Error("not found"));
+		vi.mocked(spawn).mockReturnValue(mockFailedChild() as never);
 
 		const result = await copyToClipboard("test content");
 
 		expect(result).toBe(false);
+		expect(spawn).toHaveBeenCalledTimes(4); // all 4 tools tried
 	});
 });

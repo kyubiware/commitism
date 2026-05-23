@@ -85,7 +85,7 @@ describe("showRecoveryMenu", () => {
 		);
 
 		// log.step should be called with a success message for clipboard
-		expect(log.step).toHaveBeenCalledWith(expect.stringContaining("copied"));
+		expect(log.step).toHaveBeenCalledWith(expect.stringContaining("Copied"));
 	});
 
 	it("should show error message when clipboard is unavailable", async () => {
