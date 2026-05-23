@@ -77,19 +77,27 @@ export async function showRecoveryMenu(
 ): Promise<void> {
 	debug("showRecoveryMenu: %d errors", errors.length);
 
+	let clipboardCopied = false;
+	let showNote = true;
+
 	while (true) {
-		p.note(
-			errors.map((e) => `  ${red("•")} [${e.tool}] ${e.message}`).join("\n"),
-			red(bold("Pre-commit hook failed")),
-		);
+		if (showNote) {
+			p.note(
+				errors.map((e) => `  ${red("•")} [${e.tool}] ${e.message}`).join("\n"),
+				red(bold("Pre-commit hook failed")),
+			);
+			showNote = false;
+		}
 
 		const choice = await p.select({
 			message: "What do you want to do?",
 			options: [
 				{
-					label: "Copy error report to clipboard",
+					label: clipboardCopied
+						? `${green("✓")} Copy error report to clipboard`
+						: "Copy error report to clipboard",
 					value: "clipboard",
-					hint: "Paste into another terminal for an AI agent",
+					hint: clipboardCopied ? "Copied!" : "Paste into another terminal for an AI agent",
 				},
 				{
 					label: "Skip hooks and commit (--no-verify)",
@@ -123,7 +131,7 @@ export async function showRecoveryMenu(
 			case "clipboard": {
 				const ok = await copyToClipboard(rawStderr);
 				if (ok) {
-					p.log.step(green("Errors copied"));
+					clipboardCopied = true;
 				} else {
 					p.log.warn(red("No clipboard tool found. Install xclip, wl-copy, or xsel."));
 				}
@@ -146,7 +154,8 @@ export async function showRecoveryMenu(
 					p.outro(green("Committed successfully."));
 					return;
 				}
-				// Loop back to menu on failure
+				// Re-show errors after failed restage for context
+				showNote = true;
 				continue;
 			}
 			case "edit": {
