@@ -144,6 +144,8 @@ function extractContentText(
 	return "";
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Validation retry + multi-class error handling chain
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: AI pipeline — prompt build, call, validate, retry, error mapping
 export async function generateCommitMessage(
 	diff: string,
 	options: {
@@ -178,6 +180,8 @@ export async function generateCommitMessage(
 	debug("Stat summary:\n%s", statSummary);
 	debug("User prompt length: %d chars", userPrompt.length);
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Error class instanceof chain for API error mapping
+	// biome-ignore lint/complexity/noExcessiveLinesPerFunction: API call with streaming, error handling, and retry
 	async function callAI(strictSystemPrompt?: string): Promise<string> {
 		const callStart = Date.now();
 		const isRetry = !!strictSystemPrompt;

@@ -26,6 +26,8 @@ interface CommitFlags {
 	hint?: string;
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Sequential CLI lifecycle orchestrator
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-branch state machine (retry/normal, staging, review, recovery)
 export async function commitCommand(flags: CommitFlags) {
 	debug("commitCommand called", { flags });
 	await assertGitRepo();

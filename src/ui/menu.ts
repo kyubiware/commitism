@@ -67,6 +67,8 @@ export async function showStagingMenu(files: ChangedFile[]): Promise<StagingChoi
 	return { files: selected as string[], all: false };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Recovery menu with recursive retry path
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Interactive TUI — format errors, handle 5 menu actions, recursive retry
 export async function showRecoveryMenu(
 	errors: HookError[],
 	onRetry: () => Promise<boolean>,
