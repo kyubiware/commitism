@@ -5,14 +5,15 @@ import { commitCommand } from "./commit.js";
 vi.mock("@clack/prompts", () => ({
 	intro: vi.fn(),
 	outro: vi.fn(),
-	log: { info: vi.fn() },
+	log: { info: vi.fn(), warn: vi.fn() },
 	spinner: vi.fn(() => ({
 		start: vi.fn(),
 		stop: vi.fn(),
 	})),
 	isCancel: vi.fn(() => false),
-	select: vi.fn(),
+	select: vi.fn(() => "use"),
 	multiselect: vi.fn(),
+	note: vi.fn(),
 	text: vi.fn(),
 }));
 
@@ -65,6 +66,10 @@ vi.mock("../services/config.js", () => ({
 
 vi.mock("../services/ai.js", () => ({
 	generateCommitMessage: vi.fn(),
+}));
+
+vi.mock("../services/clipboard.js", () => ({
+	copyToClipboard: vi.fn(),
 }));
 
 vi.mock("../utils/debug.js", () => ({
