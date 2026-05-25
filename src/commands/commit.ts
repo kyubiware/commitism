@@ -1,14 +1,11 @@
 import { intro, isCancel, log, outro, spinner } from "@clack/prompts";
-import { bold, dim, green, red } from "kolorist";
-import { generateCommitMessage } from "../services/ai.js";
-import { copyToClipboard } from "../services/clipboard.js";
-import { getApiKey, readConfig, setConfigValue } from "../services/config.js";
+import { dim, green, red } from "kolorist";
+import { getApiKey, setConfigValue } from "../services/config.js";
 import {
 	assertGitRepo,
 	attemptCommit,
 	attemptCommitNoVerify,
 	getChangedFiles,
-	getDefaultExcludes,
 	getHead,
 	getStagedDiff,
 	getStatusShort,
@@ -17,15 +14,15 @@ import {
 } from "../services/git.js";
 import { parseHookErrors, parseToolChecks } from "../services/hooks.js";
 import { showRecoveryMenu, showStagingMenu } from "../ui/menu.js";
+import { reviewCommitMessage } from "../ui/review-message.js";
 import { loadCachedCommit, saveCachedCommit } from "../utils/cache.js";
 import { debug } from "../utils/debug.js";
-
-interface CommitFlags {
-	retry: boolean;
-	all: boolean;
-	message?: string;
-	hint?: string;
-}
+import {
+	buildExcludedFilesMessage,
+	type CommitFlags,
+	generateMessage,
+	runAutoGroupFlow,
+} from "./auto-group.js";
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Sequential CLI lifecycle orchestrator
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-branch state machine (retry/normal, staging, review, recovery)
@@ -107,6 +104,13 @@ export async function commitCommand(flags: CommitFlags) {
 		} else {
 			// Multiple files: show interactive staging menu
 			const stagingResult = await showStagingMenu(changedFiles);
+			if (stagingResult === "autogroup") {
+				if (flags.message) {
+					outro(red("--message flag is not compatible with auto-group mode."));
+					return;
+				}
+				return runAutoGroupFlow(changedFiles, flags);
+			}
 			if (!stagingResult) {
 				outro(dim("Cancelled."));
 				return;
@@ -224,49 +228,12 @@ export async function commitCommand(flags: CommitFlags) {
 	}
 
 	// Review message (with optional code review)
-	const { select, text } = await import("@clack/prompts");
-	while (true) {
-		const review = await select({
-			message: `Review commit message:\n\n   ${bold(message)}\n`,
-			options: [
-				{ label: "Use as-is", value: "use" },
-				{ label: "Edit", value: "edit" },
-				{ label: "Review with OpenCode", value: "review" },
-				{ label: "Cancel", value: "cancel" },
-			],
-		});
-
-		if (isCancel(review) || review === "cancel") {
-			debug("User cancelled at review step");
-			outro(dim("Cancelled."));
-			return;
-		}
-
-		if (review === "use") {
-			debug("User accepted message");
-			break;
-		}
-
-		if (review === "edit") {
-			debug("User chose to edit message");
-			const edited = await text({
-				message: "Edit commit message:",
-				initialValue: message,
-				validate: (v: string) => (v.trim() ? undefined : "Message cannot be empty"),
-			});
-			if (isCancel(edited)) {
-				continue;
-			}
-			message = String(edited).trim();
-			debug("Edited message:", message);
-			continue;
-		}
-
-		if (review === "review") {
-			debug("User chose to review code");
-			await runCodeReview();
-		}
+	const reviewed = await reviewCommitMessage(message);
+	if (reviewed === null) {
+		outro(dim("Cancelled."));
+		return;
 	}
+	message = reviewed;
 
 	// Cache message before attempting commit
 	const { getRepoRoot } = await import("../services/git.js");
@@ -321,91 +288,4 @@ export async function commitCommand(flags: CommitFlags) {
 		message,
 		result.stderr ?? "",
 	);
-}
-
-async function runCodeReview(): Promise<void> {
-	const diffResult = await getStagedDiff();
-	if (!diffResult || "excludedFiles" in diffResult) {
-		outro(dim("No staged changes to review."));
-		return;
-	}
-
-	const {
-		isOpenCodeAvailable,
-		reviewWithGroq: reviewGroq,
-		reviewWithOpenCode: reviewOc,
-	} = await import("./review.js");
-	const opencodeAvailable = await isOpenCodeAvailable();
-	const s = spinner();
-	s.start(opencodeAvailable ? "Running OpenCode review..." : "Running Groq review...");
-
-	try {
-		const report = opencodeAvailable
-			? await reviewOc(diffResult.diff, diffResult.files)
-			: await reviewGroq(diffResult.diff, diffResult.files);
-		s.stop("Review complete");
-
-		await showReviewResults(report);
-	} catch (err) {
-		s.stop(red("Review failed."));
-		debug("Code review error:", err instanceof Error ? err.message : String(err));
-		outro(red(err instanceof Error ? err.message : String(err)));
-	}
-}
-
-async function showReviewResults(report: string): Promise<void> {
-	const { note: clackNote, select: clackSelect } = await import("@clack/prompts");
-	const hasIssues = report !== "NO_ISSUES_FOUND" && report.trim().length > 0;
-	if (!hasIssues) {
-		log.info(green("No issues found."));
-		return;
-	}
-
-	clackNote(report, red(bold("Review findings")));
-	const shouldCopy = await clackSelect({
-		message: "Copy review report to clipboard?",
-		options: [
-			{ label: "Yes, copy to clipboard", value: "yes" },
-			{ label: "No", value: "no" },
-		],
-	});
-	if (isCancel(shouldCopy) || shouldCopy !== "yes") return;
-
-	const ok = await copyToClipboard(report);
-	if (ok) {
-		log.info(green("Report copied to clipboard."));
-	} else {
-		log.warn(red("Failed to copy to clipboard."));
-	}
-}
-
-async function generateMessage(diff: string, hint?: string): Promise<string> {
-	const config = await readConfig();
-	const apiKey = await getApiKey();
-	debug("Generating message with model:", config.model, "type:", config.type);
-
-	return generateCommitMessage(diff, {
-		apiKey,
-		model: config.model,
-		type: config.type,
-		timeout: config.timeout ? parseInt(config.timeout, 10) : undefined,
-		hint,
-	});
-}
-
-function buildExcludedFilesMessage(files: string[]): string {
-	const excludes = getDefaultExcludes();
-	const isLockfile = (f: string) =>
-		excludes.some((pattern) => {
-			if (pattern.endsWith(".lock") || pattern.endsWith(".json")) {
-				return f === pattern || f.endsWith(pattern.replace("*.", "."));
-			}
-			return false;
-		});
-
-	if (files.every(isLockfile)) {
-		return "chore: update lockfile";
-	}
-
-	return "chore: update generated files";
 }

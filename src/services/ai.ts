@@ -3,7 +3,7 @@ import { debug } from "../utils/debug.js";
 
 const MAX_DIFF_CHARS = 20000;
 
-function mapGroqError(error: unknown): Error {
+export function mapGroqError(error: unknown): Error {
 	if (error instanceof Groq.AuthenticationError) {
 		return new Error("Invalid GROQ_API_KEY. Run: cmint config set GROQ_API_KEY=<key>");
 	}
@@ -22,11 +22,11 @@ function mapGroqError(error: unknown): Error {
 const CONVENTIONAL_COMMIT_REGEX =
 	/^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\(.+\))?!?: .+$/;
 
-function stripThinkTags(text: string): string {
+export function stripThinkTags(text: string): string {
 	return text.replace(/<think[\s\S]*?<\/think>/gi, "").trim();
 }
 
-function deriveMessageFromReasoning(reasoning: string): string | null {
+export function deriveMessageFromReasoning(reasoning: string): string | null {
 	const match = reasoning.match(
 		/(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\(.+\))?!?: .+/i,
 	);
@@ -44,7 +44,7 @@ function stripContextLines(diff: string): string {
 		.join("\n");
 }
 
-function compressDiff(diff: string): string {
+export function compressDiff(diff: string): string {
 	// Tier 0 — Full diff
 	if (diff.length <= MAX_DIFF_CHARS) {
 		return diff;
@@ -86,7 +86,7 @@ function compressDiff(diff: string): string {
 	return `Summary of changes:\n${summary.join("\n")}`;
 }
 
-function buildStatSummary(diff: string): string {
+export function buildStatSummary(diff: string): string {
 	const files: { name: string; adds: number; dels: number }[] = [];
 	let currentFile = "";
 	let adds = 0;
@@ -118,31 +118,6 @@ function buildStatSummary(diff: string): string {
 	return lines.join("\n");
 }
 
-function buildReviewSystemPrompt(): string {
-	return [
-		"You are an expert code reviewer. Review the following staged git diff.",
-		"",
-		"Focus on finding:",
-		"1. **Bugs** — logic errors, off-by-one, race conditions, null pointer risks",
-		"2. **Security issues** — injection, exposure of secrets, missing validation, CSRF, XSS",
-		"3. **Performance problems** — unnecessary work, large allocations in hot paths",
-		"4. **Code quality** — readability, maintainability, error handling gaps",
-		"5. **Edge cases** — missing boundary checks, empty states, error states",
-		"",
-		"For each issue found, use this format:",
-		"- SEVERITY: [critical|major|minor|suggestion]",
-		"- LOCATION: <file-path>:<line-number>",
-		"- ISSUE: <description>",
-		"- FIX: <suggested resolution>",
-		"",
-		"Separate issues with a blank line.",
-		"",
-		"If you find NO issues at all, respond with exactly: NO_ISSUES_FOUND",
-		"",
-		"Be thorough but practical. Only flag real problems — not style preferences or nitpicks.",
-	].join("\n");
-}
-
 function buildSystemPrompt(type?: string): string {
 	let prompt =
 		"You are a commit message generator. Follow the Conventional Commits specification.\n" +
@@ -170,19 +145,7 @@ function isValidConventionalCommit(message: string): boolean {
 	return CONVENTIONAL_COMMIT_REGEX.test(message);
 }
 
-function buildReviewPrompt(diff: string, files: string[], statSummary: string): string {
-	const parts: string[] = [];
-	parts.push(`Review the following staged changes (${files.length} files):`);
-	parts.push("");
-	parts.push(statSummary);
-	parts.push("");
-	parts.push("```diff");
-	parts.push(diff);
-	parts.push("```");
-	return parts.join("\n");
-}
-
-function extractContentText(
+export function extractContentText(
 	content: string | Array<{ type: string; text?: string }> | null | undefined,
 ): string {
 	if (content == null) return "";
@@ -336,70 +299,6 @@ export async function generateCommitMessage(
 		return message;
 	} catch (error) {
 		debug("AI error: %s", error instanceof Error ? error.message : String(error));
-		throw mapGroqError(error);
-	}
-}
-
-export async function generateCodeReview(
-	diff: string,
-	files: string[],
-	options: {
-		apiKey: string;
-		model?: string;
-		timeout?: number;
-	},
-): Promise<string> {
-	debug("generateCodeReview: model=%s, files=%d", options.model ?? "default", files.length);
-	const timeoutMs = options.timeout ?? 60000;
-	const client = new Groq({ apiKey: options.apiKey, timeout: timeoutMs });
-	const compressedDiff = compressDiff(diff);
-	const statSummary = buildStatSummary(diff);
-	const systemPrompt = buildReviewSystemPrompt();
-	const userPrompt = buildReviewPrompt(compressedDiff, files, statSummary);
-
-	debug(
-		"Code review: %d chars → %d chars, system=%d chars, user=%d chars",
-		diff.length,
-		compressedDiff.length,
-		systemPrompt.length,
-		userPrompt.length,
-	);
-
-	try {
-		const completion = await client.chat.completions.create({
-			messages: [
-				{ role: "system", content: systemPrompt },
-				{ role: "user", content: userPrompt },
-			],
-			model: options.model ?? "openai/gpt-oss-20b",
-			temperature: 0.3,
-			max_tokens: 4096,
-		});
-
-		const rawContent = completion.choices[0]?.message?.content;
-		const content = extractContentText(rawContent);
-		debug(
-			"generateCodeReview response: choices=%d, finishReason=%s, contentLen=%d",
-			completion.choices.length,
-			completion.choices[0]?.finish_reason ?? "(none)",
-			content.length,
-		);
-
-		if (!content) {
-			const reasoning = completion.choices[0]?.message?.reasoning;
-			if (reasoning) {
-				const derived = deriveMessageFromReasoning(reasoning);
-				if (derived) {
-					debug("generateCodeReview: derived from reasoning");
-					return derived;
-				}
-			}
-			return "NO_ISSUES_FOUND";
-		}
-
-		return content;
-	} catch (error) {
-		debug("generateCodeReview error: %s", error instanceof Error ? error.message : String(error));
 		throw mapGroqError(error);
 	}
 }

@@ -10,7 +10,9 @@ export interface StagingChoice {
 	all: boolean; // whether user chose "Stage all"
 }
 
-export async function showStagingMenu(files: ChangedFile[]): Promise<StagingChoice | null> {
+export async function showStagingMenu(
+	files: ChangedFile[],
+): Promise<StagingChoice | "autogroup" | null> {
 	debug("showStagingMenu: %d files", files.length);
 
 	// Build status labels with kolorist colors
@@ -38,12 +40,21 @@ export async function showStagingMenu(files: ChangedFile[]): Promise<StagingChoi
 				hint: `${files.length} file${files.length !== 1 ? "s" : ""}`,
 			},
 			{ label: "Select files...", value: "select" },
+			{
+				label: "Auto-group into commits",
+				value: "autogroup",
+				hint: "LLM groups files into logical commits",
+			},
 			{ label: "Cancel", value: "cancel" },
 		],
 	});
 
 	if (p.isCancel(choice) || choice === "cancel") {
 		return null;
+	}
+
+	if (choice === "autogroup") {
+		return "autogroup";
 	}
 
 	if (choice === "all") {
