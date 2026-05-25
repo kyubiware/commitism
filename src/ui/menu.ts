@@ -5,6 +5,8 @@ import type { ChangedFile } from "../services/git.js";
 import type { HookError } from "../services/hooks.js";
 import { debug } from "../utils/debug.js";
 
+export type RecoveryResult = "committed" | "cancelled" | "failed";
+
 export interface StagingChoice {
 	files: string[]; // selected file paths to stage
 	all: boolean; // whether user chose "Stage all"
@@ -87,7 +89,7 @@ export async function showRecoveryMenu(
 	onRestage: () => Promise<boolean>,
 	message: string,
 	rawStderr: string,
-): Promise<void> {
+): Promise<RecoveryResult> {
 	debug("showRecoveryMenu: %d errors", errors.length);
 
 	let clipboardCopied = false;
@@ -134,8 +136,7 @@ export async function showRecoveryMenu(
 		if (p.isCancel(choice)) {
 			debug("showRecoveryMenu: user cancelled");
 			p.outro(yellow("Cancelled. Message cached for --retry."));
-			process.exit(1);
-			return;
+			return "cancelled";
 		}
 
 		debug("showRecoveryMenu: user chose %s", choice);
@@ -156,17 +157,18 @@ export async function showRecoveryMenu(
 				const ok = await onSkipHooks(message);
 				if (ok) {
 					p.outro(green("Committed (hooks skipped)."));
+					return "committed";
 				} else {
 					p.outro(red("Commit failed even with --no-verify."));
+					return "failed";
 				}
-				return;
 			}
 			case "restage": {
 				p.log.info(cyan("Re-staging and retrying..."));
 				const ok = await onRestage();
 				if (ok) {
 					p.outro(green("Committed successfully."));
-					return;
+					return "committed";
 				}
 				// Re-show errors after failed restage for context
 				showNote = true;
@@ -180,21 +182,20 @@ export async function showRecoveryMenu(
 				});
 				if (p.isCancel(edited)) {
 					p.outro(yellow("Cancelled. Message cached for --retry."));
-					process.exit(1);
-					return;
+					return "cancelled";
 				}
 				const ok = await onRetry();
 				if (ok) {
 					p.outro(green("Committed successfully."));
+					return "committed";
 				} else {
 					p.outro(red("Commit failed again."));
+					return "failed";
 				}
-				return;
 			}
 			case "cancel": {
 				p.outro(dim("Message cached for --retry."));
-				process.exit(1);
-				return;
+				return "cancelled";
 			}
 		}
 	}
