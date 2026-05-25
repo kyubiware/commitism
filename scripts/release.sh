@@ -15,7 +15,7 @@ if [ -n "$DIRTY" ]; then
 fi
 
 echo "Running CI checks..."
-npm run lint
+npx biome check --error-on-warnings .
 npm run typecheck
 npm run test
 npm run build
