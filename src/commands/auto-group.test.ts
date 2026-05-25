@@ -86,14 +86,7 @@ import { outro } from "@clack/prompts";
 import { generateCommitMessage } from "../services/ai.js";
 import { getApiKey, readConfig } from "../services/config.js";
 import type { ChangedFile } from "../services/git.js";
-import {
-	attemptCommit,
-	getHead,
-	getRepoRoot,
-	getStagedDiff,
-	resetStaging,
-	stageFiles,
-} from "../services/git.js";
+import { attemptCommit, getHead, getRepoRoot, getStagedDiff, stageFiles } from "../services/git.js";
 import { filterExcludedFiles, generateGroups } from "../services/grouping.js";
 import { parseHookErrors, parseToolChecks } from "../services/hooks.js";
 import { showGroupingConfirmation } from "../ui/grouping.js";
