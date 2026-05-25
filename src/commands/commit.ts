@@ -60,7 +60,7 @@ export async function commitCommand(flags: CommitFlags) {
 		} else {
 			const errors = parseHookErrors(result.stderr ?? "");
 			debug("Hook errors on retry:", errors.length);
-			await showRecoveryMenu(
+			const recoveryResult = await showRecoveryMenu(
 				errors,
 				async () => (await attemptCommit(cached.message)).ok,
 				async (msg) => (await attemptCommitNoVerify(msg)).ok,
@@ -71,8 +71,11 @@ export async function commitCommand(flags: CommitFlags) {
 				cached.message,
 				result.stderr ?? "",
 			);
+			if (recoveryResult === "cancelled") {
+				process.exit(1);
+			}
+			return;
 		}
-		return;
 	}
 
 	// ── Normal mode ─────────────────────────────────────────────────
@@ -109,7 +112,11 @@ export async function commitCommand(flags: CommitFlags) {
 					outro(red("--message flag is not compatible with auto-group mode."));
 					return;
 				}
-				return runAutoGroupFlow(changedFiles, flags);
+				const agResult = await runAutoGroupFlow(changedFiles, flags);
+				if (agResult !== "committed") {
+					process.exit(1);
+				}
+				return;
 			}
 			if (!stagingResult) {
 				outro(dim("Cancelled."));
@@ -166,7 +173,7 @@ export async function commitCommand(flags: CommitFlags) {
 
 		s.stop("Commit failed.");
 		const errors = parseHookErrors(result.stderr ?? "");
-		await showRecoveryMenu(
+		const recoveryResult = await showRecoveryMenu(
 			errors,
 			async () => (await attemptCommit(message)).ok,
 			async (msg) => (await attemptCommitNoVerify(msg)).ok,
@@ -177,6 +184,9 @@ export async function commitCommand(flags: CommitFlags) {
 			message,
 			result.stderr ?? "",
 		);
+		if (recoveryResult === "cancelled") {
+			process.exit(1);
+		}
 		return;
 	}
 
@@ -270,7 +280,7 @@ export async function commitCommand(flags: CommitFlags) {
 	// Hook failure — show recovery menu
 	const errors = parseHookErrors(result.stderr ?? "");
 	debug("Parsed hook errors:", errors.length, "errors");
-	await showRecoveryMenu(
+	const recoveryResult = await showRecoveryMenu(
 		errors,
 		async () => {
 			const r = await attemptCommit(message);
@@ -288,4 +298,7 @@ export async function commitCommand(flags: CommitFlags) {
 		message,
 		result.stderr ?? "",
 	);
+	if (recoveryResult === "cancelled") {
+		process.exit(1);
+	}
 }
