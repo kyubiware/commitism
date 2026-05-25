@@ -14,7 +14,7 @@ import {
 import { filterExcludedFiles, generateGroups, validateGroups } from "../services/grouping.js";
 import { parseHookErrors, parseToolChecks } from "../services/hooks.js";
 import { showGroupingConfirmation, showGroupProgress } from "../ui/grouping.js";
-import { showRecoveryMenu } from "../ui/menu.js";
+import { type RecoveryResult, showRecoveryMenu } from "../ui/menu.js";
 import { reviewCommitMessage } from "../ui/review-message.js";
 import { saveCachedCommit } from "../utils/cache.js";
 import { debug } from "../utils/debug.js";
@@ -31,7 +31,7 @@ export interface CommitFlags {
 export async function runAutoGroupFlow(
 	changedFiles: ChangedFile[],
 	flags: CommitFlags,
-): Promise<void> {
+): Promise<RecoveryResult> {
 	// Step 1: Filter excluded files
 	const { included, excluded } = filterExcludedFiles(changedFiles);
 
@@ -49,7 +49,7 @@ export async function runAutoGroupFlow(
 		});
 		if (isCancel(key)) {
 			outro(dim("Cancelled."));
-			return;
+			return "cancelled";
 		}
 		await setConfigValue("GROQ_API_KEY", String(key).trim());
 		debug("API key saved to config");
@@ -73,7 +73,7 @@ export async function runAutoGroupFlow(
 	const confirmed = await showGroupingConfirmation(validatedGroups, excluded);
 	if (!confirmed) {
 		outro(dim("Cancelled."));
-		return;
+		return "cancelled";
 	}
 
 	// Step 5: Sequential multi-commit loop
@@ -99,7 +99,7 @@ export async function runAutoGroupFlow(
 		} catch (err) {
 			s.stop(red("Failed to generate message."));
 			outro(red(err instanceof Error ? err.message : String(err)));
-			return;
+			return "cancelled";
 		}
 		s.stop("Message generated");
 
@@ -107,7 +107,7 @@ export async function runAutoGroupFlow(
 		const reviewed = await reviewCommitMessage(message);
 		if (reviewed === null) {
 			outro(dim("Cancelled."));
-			return;
+			return "cancelled";
 		}
 		message = reviewed;
 
@@ -135,7 +135,7 @@ export async function runAutoGroupFlow(
 		// Hook failure — stop sequence, show recovery menu
 		s.stop("Commit failed.");
 		const errors = parseHookErrors(commitResult.stderr ?? "");
-		await showRecoveryMenu(
+		const recoveryResult = await showRecoveryMenu(
 			errors,
 			async () => (await attemptCommit(message)).ok,
 			async (msg) => (await attemptCommitNoVerify(msg)).ok,
@@ -146,10 +146,17 @@ export async function runAutoGroupFlow(
 			message,
 			commitResult.stderr ?? "",
 		);
-		return;
+		if (recoveryResult === "committed") {
+			if (i < validatedGroups.length - 1) {
+				continue;
+			}
+			return "committed";
+		}
+		return recoveryResult;
 	}
 
 	outro(green("All groups committed."));
+	return "committed";
 }
 
 export async function generateMessage(diff: string, hint?: string): Promise<string> {
