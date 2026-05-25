@@ -13,6 +13,7 @@ import {
 	stageFiles,
 } from "../services/git.js";
 import { parseHookErrors, parseToolChecks } from "../services/hooks.js";
+import { hasLintStagedConfig, runLintStaged } from "../services/lint-staged.js";
 import { showRecoveryMenu, showStagingMenu } from "../ui/menu.js";
 import { reviewCommitMessage } from "../ui/review-message.js";
 import { loadCachedCommit, saveCachedCommit } from "../utils/cache.js";
@@ -89,7 +90,7 @@ export async function commitCommand(flags: CommitFlags) {
 	}
 
 	// Stage changes
-	const changedFiles = await getChangedFiles();
+	let changedFiles = await getChangedFiles();
 	debug("Changed files:", changedFiles.length);
 	const s = spinner();
 
@@ -105,30 +106,65 @@ export async function commitCommand(flags: CommitFlags) {
 			await stageFiles([changedFiles[0].path]);
 			s.stop("File staged");
 		} else {
-			// Multiple files: show interactive staging menu
-			const stagingResult = await showStagingMenu(changedFiles);
-			if (stagingResult === "autogroup") {
-				if (flags.message) {
-					outro(red("--message flag is not compatible with auto-group mode."));
+			// Multiple files: show interactive staging menu (loops for lint-staged)
+			const { getRepoRoot } = await import("../services/git.js");
+			const repoRoot = await getRepoRoot();
+			const lintStagedAvailable = await hasLintStagedConfig(repoRoot);
+			debug("lint-staged available:", lintStagedAvailable);
+
+			let stagingResult: Awaited<ReturnType<typeof showStagingMenu>> = null;
+			let filesToStage: string[] = [];
+			let stageAllFlag = false;
+
+			while (true) {
+				stagingResult = await showStagingMenu(changedFiles, lintStagedAvailable);
+
+				if (stagingResult === "autogroup") {
+					if (flags.message) {
+						outro(red("--message flag is not compatible with auto-group mode."));
+						return;
+					}
+					const agResult = await runAutoGroupFlow(changedFiles, flags);
+					if (agResult !== "committed") {
+						process.exit(1);
+					}
 					return;
 				}
-				const agResult = await runAutoGroupFlow(changedFiles, flags);
-				if (agResult !== "committed") {
-					process.exit(1);
+
+				if (stagingResult === "lint-staged") {
+					await stageAll();
+					const lsSpinner = spinner();
+					lsSpinner.start("Running lint-staged checks...");
+					const lsResult = await runLintStaged();
+					if (lsResult.ok) {
+						lsSpinner.stop("All lint-staged checks passed");
+						if (lsResult.stdout.trim()) {
+							log.info(dim(lsResult.stdout.trim()));
+						}
+					} else {
+						lsSpinner.stop("Lint-staged checks failed");
+						log.info(lsResult.stderr?.trim() || lsResult.stdout?.trim() || "Unknown error");
+					}
+					// Refresh changed files list after lint-staged may have modified files
+					changedFiles = await getChangedFiles();
+					continue;
 				}
-				return;
+
+				if (!stagingResult) {
+					outro(dim("Cancelled."));
+					return;
+				}
+
+				filesToStage = stagingResult.files;
+				stageAllFlag = stagingResult.all;
+				break;
 			}
-			if (!stagingResult) {
-				outro(dim("Cancelled."));
-				return;
-			}
-			s.start(
-				`Staging ${stagingResult.files.length} file${stagingResult.files.length !== 1 ? "s" : ""}...`,
-			);
-			if (stagingResult.all) {
+
+			s.start(`Staging ${filesToStage.length} file${filesToStage.length !== 1 ? "s" : ""}...`);
+			if (stageAllFlag) {
 				await stageAll();
 			} else {
-				await stageFiles(stagingResult.files);
+				await stageFiles(filesToStage);
 			}
 			s.stop("Files staged");
 		}

@@ -48,6 +48,11 @@ vi.mock("../services/hooks.js", () => ({
 	parseToolChecks: vi.fn(() => []),
 }));
 
+vi.mock("../services/lint-staged.js", () => ({
+	hasLintStagedConfig: vi.fn(() => Promise.resolve(false)),
+	runLintStaged: vi.fn(),
+}));
+
 vi.mock("../ui/menu.js", () => ({
 	showRecoveryMenu: vi.fn(),
 	showStagingMenu: vi.fn(),
@@ -256,10 +261,13 @@ describe("commitCommand", () => {
 
 		await commitCommand({ retry: false, all: false });
 
-		expect(showStagingMenu).toHaveBeenCalledWith([
-			{ status: "M", path: "src/foo.ts", staged: true },
-			{ status: "??", path: "src/bar.ts", staged: false },
-		]);
+		expect(showStagingMenu).toHaveBeenCalledWith(
+			[
+				{ status: "M", path: "src/foo.ts", staged: true },
+				{ status: "??", path: "src/bar.ts", staged: false },
+			],
+			false,
+		);
 		expect(stageAll).toHaveBeenCalled();
 	});
 });
