@@ -15,7 +15,8 @@ export interface StagingChoice {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Staging menu with file list display + multiselect fallback
 export async function showStagingMenu(
 	files: ChangedFile[],
-): Promise<StagingChoice | "autogroup" | null> {
+	hasLintStaged: boolean,
+): Promise<StagingChoice | "autogroup" | "lint-staged" | null> {
 	debug("showStagingMenu: %d files", files.length);
 
 	// Build status labels with kolorist colors
@@ -72,6 +73,15 @@ export async function showStagingMenu(
 				value: "all",
 				hint: `${files.length} file${files.length !== 1 ? "s" : ""}`,
 			},
+			...(hasLintStaged
+				? [
+						{
+							label: "Run lint-staged checks",
+							value: "lint-staged" as const,
+							hint: "Pre-flight checks on all changed files",
+						},
+					]
+				: []),
 			{ label: "Select files...", value: "select" },
 			{ label: "Cancel", value: "cancel" },
 		],
@@ -83,6 +93,10 @@ export async function showStagingMenu(
 
 	if (choice === "autogroup") {
 		return "autogroup";
+	}
+
+	if (choice === "lint-staged") {
+		return "lint-staged";
 	}
 
 	if (choice === "all") {
