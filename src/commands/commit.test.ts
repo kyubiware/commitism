@@ -101,7 +101,9 @@ describe("commitCommand", () => {
 
 	it("handles errors from generateMessage without unhandled rejection", async () => {
 		vi.mocked(getStatusShort).mockResolvedValue("M  src/foo.ts");
-		vi.mocked(getChangedFiles).mockResolvedValue([{ status: "M", path: "src/foo.ts" }]);
+		vi.mocked(getChangedFiles).mockResolvedValue([
+			{ status: "M", path: "src/foo.ts", staged: true },
+		]);
 		vi.mocked(stageFiles).mockResolvedValue(undefined);
 		vi.mocked(getStagedDiff).mockResolvedValue({
 			files: ["src/foo.ts"],
@@ -117,7 +119,9 @@ describe("commitCommand", () => {
 
 	it("prompts for API key when missing, saves it, then continues", async () => {
 		vi.mocked(getStatusShort).mockResolvedValue("M  src/foo.ts");
-		vi.mocked(getChangedFiles).mockResolvedValue([{ status: "M", path: "src/foo.ts" }]);
+		vi.mocked(getChangedFiles).mockResolvedValue([
+			{ status: "M", path: "src/foo.ts", staged: true },
+		]);
 		vi.mocked(stageFiles).mockResolvedValue(undefined);
 		vi.mocked(getStagedDiff).mockResolvedValue({
 			files: ["src/foo.ts"],
@@ -147,7 +151,9 @@ describe("commitCommand", () => {
 
 	it("calls generateCommitMessage with correct options from config and flags", async () => {
 		vi.mocked(getStatusShort).mockResolvedValue("M  src/foo.ts");
-		vi.mocked(getChangedFiles).mockResolvedValue([{ status: "M", path: "src/foo.ts" }]);
+		vi.mocked(getChangedFiles).mockResolvedValue([
+			{ status: "M", path: "src/foo.ts", staged: true },
+		]);
 		vi.mocked(stageFiles).mockResolvedValue(undefined);
 		vi.mocked(getStagedDiff).mockResolvedValue({
 			files: ["src/foo.ts"],
@@ -177,7 +183,9 @@ describe("commitCommand", () => {
 
 	it("catches and displays errors from generateCommitMessage gracefully", async () => {
 		vi.mocked(getStatusShort).mockResolvedValue("M  src/foo.ts");
-		vi.mocked(getChangedFiles).mockResolvedValue([{ status: "M", path: "src/foo.ts" }]);
+		vi.mocked(getChangedFiles).mockResolvedValue([
+			{ status: "M", path: "src/foo.ts", staged: true },
+		]);
 		vi.mocked(stageFiles).mockResolvedValue(undefined);
 		vi.mocked(getStagedDiff).mockResolvedValue({
 			files: ["src/foo.ts"],
@@ -199,7 +207,9 @@ describe("commitCommand", () => {
 
 	it("uses hardcoded message when all staged files are excluded", async () => {
 		vi.mocked(getStatusShort).mockResolvedValue("M  package-lock.json");
-		vi.mocked(getChangedFiles).mockResolvedValue([{ status: "M", path: "package-lock.json" }]);
+		vi.mocked(getChangedFiles).mockResolvedValue([
+			{ status: "M", path: "package-lock.json", staged: true },
+		]);
 		vi.mocked(stageFiles).mockResolvedValue(undefined);
 		vi.mocked(getStagedDiff).mockResolvedValue({
 			excludedFiles: ["package-lock.json"],
@@ -221,8 +231,8 @@ describe("commitCommand", () => {
 	it("shows staging menu when multiple files changed and --all is not set", async () => {
 		vi.mocked(getStatusShort).mockResolvedValue("M  src/foo.ts\n?? src/bar.ts");
 		vi.mocked(getChangedFiles).mockResolvedValue([
-			{ status: "M", path: "src/foo.ts" },
-			{ status: "??", path: "src/bar.ts" },
+			{ status: "M", path: "src/foo.ts", staged: true },
+			{ status: "??", path: "src/bar.ts", staged: false },
 		]);
 		// User selects "Stage all" in the menu
 		vi.mocked(showStagingMenu).mockResolvedValue({
@@ -247,8 +257,8 @@ describe("commitCommand", () => {
 		await commitCommand({ retry: false, all: false });
 
 		expect(showStagingMenu).toHaveBeenCalledWith([
-			{ status: "M", path: "src/foo.ts" },
-			{ status: "??", path: "src/bar.ts" },
+			{ status: "M", path: "src/foo.ts", staged: true },
+			{ status: "??", path: "src/bar.ts", staged: false },
 		]);
 		expect(stageAll).toHaveBeenCalled();
 	});

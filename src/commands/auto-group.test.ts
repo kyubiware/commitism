@@ -98,8 +98,8 @@ describe("runAutoGroupFlow loop control", () => {
 	});
 
 	const changedFiles: ChangedFile[] = [
-		{ status: "M", path: "src/a.ts" },
-		{ status: "M", path: "src/b.ts" },
+		{ status: "M", path: "src/a.ts", staged: true },
+		{ status: "M", path: "src/b.ts", staged: true },
 	];
 
 	const flags: CommitFlags = { retry: false, all: false };
@@ -182,7 +182,7 @@ describe("runAutoGroupFlow loop control", () => {
 		vi.mocked(attemptCommit).mockResolvedValueOnce({ ok: false });
 		vi.mocked(showRecoveryMenu).mockResolvedValue("committed");
 
-		await runAutoGroupFlow([{ status: "M", path: "src/a.ts" }], flags);
+		await runAutoGroupFlow([{ status: "M", path: "src/a.ts", staged: true }], flags);
 
 		expect(attemptCommit).toHaveBeenCalledTimes(1);
 		expect(outro).not.toHaveBeenCalledWith(expect.stringContaining("All groups committed."));
