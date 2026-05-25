@@ -29,7 +29,7 @@ vi.mock("../services/config.js", () => ({
 	readConfig: vi.fn(),
 }));
 
-vi.mock("../services/ai.js", () => ({
+vi.mock("../services/review-ai.js", () => ({
 	generateCodeReview: vi.fn(),
 }));
 
@@ -48,10 +48,10 @@ vi.mock("execa", () => ({
 }));
 
 import { note, outro, select } from "@clack/prompts";
-import { generateCodeReview } from "../services/ai.js";
 import { copyToClipboard } from "../services/clipboard.js";
 import { getApiKey, readConfig } from "../services/config.js";
 import { assertGitRepo, getRepoRoot, getStagedDiff, stageAll } from "../services/git.js";
+import { generateCodeReview } from "../services/review-ai.js";
 
 const mockedAssertGitRepo = vi.mocked(assertGitRepo);
 const mockedGetStagedDiff = vi.mocked(getStagedDiff);

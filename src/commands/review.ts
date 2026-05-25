@@ -1,9 +1,9 @@
 import { intro, isCancel, log, note, outro, select, spinner } from "@clack/prompts";
 import { bold, dim, green, red } from "kolorist";
-import { generateCodeReview } from "../services/ai.js";
 import { copyToClipboard } from "../services/clipboard.js";
 import { getApiKey, readConfig } from "../services/config.js";
 import { assertGitRepo, getRepoRoot, getStagedDiff, stageAll } from "../services/git.js";
+import { generateCodeReview } from "../services/review-ai.js";
 import { debug } from "../utils/debug.js";
 
 export async function reviewCommand(): Promise<void> {
