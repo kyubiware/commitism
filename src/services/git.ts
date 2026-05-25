@@ -99,6 +99,11 @@ export async function stageAll() {
 	await execa("git", ["add", "-A"]);
 }
 
+export async function resetStaging() {
+	debug("resetStaging: git reset HEAD");
+	await execa("git", ["reset", "HEAD"]);
+}
+
 export async function getHead() {
 	const { stdout } = await execa("git", ["rev-parse", "HEAD"]);
 	return stdout.trim();

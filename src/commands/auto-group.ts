@@ -9,6 +9,7 @@ import {
 	getDefaultExcludes,
 	getHead,
 	getStagedDiff,
+	resetStaging,
 	stageFiles,
 } from "../services/git.js";
 import { filterExcludedFiles, generateGroups, validateGroups } from "../services/grouping.js";
@@ -81,7 +82,8 @@ export async function runAutoGroupFlow(
 		const group = validatedGroups[i];
 		showGroupProgress(i + 1, validatedGroups.length, group.name);
 
-		// Stage this group's files
+		// Unstage everything first, then stage only this group's files
+		await resetStaging();
 		await stageFiles(group.files);
 
 		// Get diff for this group
