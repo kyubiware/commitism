@@ -34,6 +34,7 @@ export type DiffResult = StagedDiffResult | ExcludedFilesResult | null;
 export interface ChangedFile {
 	path: string;
 	status: string;
+	staged: boolean;
 }
 
 const DEFAULT_EXCLUDES = [
@@ -114,10 +115,14 @@ export async function getChangedFiles(): Promise<ChangedFile[]> {
 	const files = stdout
 		.split("\n")
 		.filter(Boolean)
-		.map((line) => ({
-			status: line.slice(0, 2).trim(),
-			path: line.slice(3),
-		}));
+		.map((line) => {
+			const indexStatus = line[0];
+			return {
+				status: line.slice(0, 2).trim(),
+				path: line.slice(3),
+				staged: indexStatus !== " " && indexStatus !== "?",
+			};
+		});
 	debug("getChangedFiles:", files.length, "files");
 	return files;
 }
