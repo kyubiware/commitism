@@ -12,6 +12,7 @@ export interface StagingChoice {
 	all: boolean; // whether user chose "Stage all"
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Staging menu with file list display + multiselect fallback
 export async function showStagingMenu(
 	files: ChangedFile[],
 ): Promise<StagingChoice | "autogroup" | null> {
@@ -33,20 +34,45 @@ export async function showStagingMenu(
 		}
 	};
 
+	// Sort: staged files first, then unstaged
+	const sorted = [...files].sort((a, b) => {
+		if (a.staged !== b.staged) return a.staged ? -1 : 1;
+		return a.path.localeCompare(b.path);
+	});
+
+	// Show file list grouped by staged status
+	const stagedFiles = sorted.filter((f) => f.staged);
+	const unstagedFiles = sorted.filter((f) => !f.staged);
+	const lines: string[] = [];
+	if (stagedFiles.length > 0) {
+		lines.push(
+			green(bold("Staged:")),
+			...stagedFiles.map((f) => `  ${statusLabel(f.status)}  ${f.path}`),
+		);
+	}
+	if (unstagedFiles.length > 0) {
+		if (lines.length > 0) lines.push("");
+		lines.push(
+			yellow(bold("Changed:")),
+			...unstagedFiles.map((f) => `  ${statusLabel(f.status)}  ${f.path}`),
+		);
+	}
+	p.note(lines.join("\n"), `${files.length} file${files.length !== 1 ? "s" : ""}`);
+
 	const choice = await p.select({
 		message: "Stage files for commit:",
 		options: [
+			{
+				label: "Auto-group into commits",
+				value: "autogroup",
+				hint: "LLM groups files into logical commits",
+			},
 			{
 				label: "Stage all files",
 				value: "all",
 				hint: `${files.length} file${files.length !== 1 ? "s" : ""}`,
 			},
 			{ label: "Select files...", value: "select" },
-			{
-				label: "Auto-group into commits",
-				value: "autogroup",
-				hint: "LLM groups files into logical commits",
-			},
 			{ label: "Cancel", value: "cancel" },
 		],
 	});
@@ -66,7 +92,7 @@ export async function showStagingMenu(
 	// Multi-select
 	const selected = await p.multiselect({
 		message: "Select files to stage:",
-		options: files.map((f) => ({
+		options: sorted.map((f) => ({
 			label: `${statusLabel(f.status)}  ${f.path}`,
 			value: f.path,
 		})),
