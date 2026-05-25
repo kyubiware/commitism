@@ -43,25 +43,44 @@ function matchesExcludePattern(filePath: string, pattern: string): boolean {
 	return false;
 }
 
+/** Lockfiles that should be kept when their companion manifest is present */
+const LOCKFILE_COMPANIONS: Record<string, string> = {
+	"package-lock.json": "package.json",
+	"pnpm-lock.yaml": "package.json",
+	"yarn.lock": "package.json",
+};
+
 export function filterExcludedFiles(files: ChangedFile[]): {
 	included: ChangedFile[];
 	excluded: string[];
 } {
 	const patterns = getDefaultExcludes();
 	const included: ChangedFile[] = [];
-	const excluded: string[] = [];
+	const excluded: ChangedFile[] = [];
+	const filePaths = new Set(files.map((f) => f.path));
 
 	for (const file of files) {
 		const isExcluded = patterns.some((pattern) => matchesExcludePattern(file.path, pattern));
 		if (isExcluded) {
-			excluded.push(file.path);
+			excluded.push(file);
 		} else {
 			included.push(file);
 		}
 	}
 
-	debug("filterExcludedFiles: %d included, %d excluded", included.length, excluded.length);
-	return { included, excluded };
+	// Promote lockfiles whose companion manifest is present
+	const stillExcluded: string[] = [];
+	for (const file of excluded) {
+		const companion = LOCKFILE_COMPANIONS[file.path];
+		if (companion && filePaths.has(companion)) {
+			included.push(file);
+		} else {
+			stillExcluded.push(file.path);
+		}
+	}
+
+	debug("filterExcludedFiles: %d included, %d excluded", included.length, stillExcluded.length);
+	return { included, excluded: stillExcluded };
 }
 
 function statusIndicator(status: string): string {

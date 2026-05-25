@@ -248,7 +248,7 @@ export async function commitCommand(flags: CommitFlags) {
 			const key = await promptText({
 				message: "Enter your Groq API key:",
 				placeholder: "gsk_...",
-				validate: (v: string) => (v.trim() ? undefined : "API key is required"),
+				validate: (v) => (v?.trim() ? undefined : "API key is required"),
 			});
 			if (isCancel(key)) {
 				outro(dim("Cancelled."));

@@ -84,7 +84,7 @@ export async function reviewCommitMessage(message: string): Promise<string | nul
 			const edited = await text({
 				message: "Edit commit message:",
 				initialValue: message,
-				validate: (v: string) => (v.trim() ? undefined : "Message cannot be empty"),
+				validate: (v) => (v?.trim() ? undefined : "Message cannot be empty"),
 			});
 			if (isCancel(edited)) {
 				continue;

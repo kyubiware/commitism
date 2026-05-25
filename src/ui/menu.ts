@@ -218,7 +218,7 @@ export async function showRecoveryMenu(
 				const edited = await p.text({
 					message: "Edit commit message:",
 					initialValue: message,
-					validate: (v) => (v.trim() ? undefined : "Message cannot be empty"),
+					validate: (v) => (v?.trim() ? undefined : "Message cannot be empty"),
 				});
 				if (p.isCancel(edited)) {
 					p.outro(yellow("Cancelled. Message cached for --retry."));
