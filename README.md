@@ -1,16 +1,18 @@
 # commit-mint
 
-> A commit tool that actually handles hook failures.
+> commit-mint groups changed files into individual commits, generates commit messages, and cleanly handles commit hook failures. It wraps the entire commit lifecycle — stage, generate, review, attempt, recover, retry — so you never lose a message or stare at raw hook output again.
 
-## The Problem
+## Quick Start
 
-When `git commit` fails due to pre-commit hooks (lint-staged, biome, eslint, tsc, vitest, jest), you get a wall of raw error output with no clear next step. Your commit message is lost. You fix the errors, try to remember or regenerate the message, and retry manually.
+```bash
+npm install -g @kyubiware/commit-mint
+```
 
-Every existing AI commit tool has the same gap — they generate a message, call `git commit`, and if hooks fail, they just die.
+```bash
+cmint
+```
 
-## What commit-mint does differently
-
-commit-mint wraps the entire commit lifecycle — stage, generate, review, attempt, recover, retry — in one CLI tool:
+Requires **Node.js 18+**.
 
 ```
 stage files → generate message → review message → attempt commit → hooks fail?
@@ -20,14 +22,6 @@ stage files → generate message → review message → attempt commit → hooks
                                                                     ├─ edit message
                                                                     └─ cancel (cached for --retry)
 ```
-
-## Installation
-
-```bash
-npm install -g @kyubiware/commit-mint
-```
-
-Requires **Node.js 18+**.
 
 ## Usage
 
