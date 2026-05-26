@@ -96,6 +96,7 @@ function statusIndicator(status: string): string {
 		case "C":
 			return "copied";
 		case "?":
+		case "??":
 			return "untracked";
 		default:
 			return "changed";
@@ -106,7 +107,7 @@ export function buildFileSummary(files: ChangedFile[]): string {
 	return files.map((f) => `${f.path} (${statusIndicator(f.status)})`).join("\n");
 }
 
-function buildGroupingSystemPrompt(): string {
+export function buildGroupingSystemPrompt(): string {
 	return [
 		"You are analyzing changed files in a git repository. Group them into logical commits based on what changed and why. Each group should be a coherent unit of work.",
 		"",

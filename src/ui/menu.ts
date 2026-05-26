@@ -29,7 +29,8 @@ export async function showStagingMenu(
 			case "D":
 				return red("D");
 			case "?":
-				return dim("?");
+			case "??":
+				return cyan("?");
 			default:
 				return dim(status);
 		}
