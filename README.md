@@ -29,7 +29,7 @@ stage files → generate message → review message → attempt commit → hooks
 # Normal commit flow (interactive staging if multiple files)
 cmint
 
-# Auto-stage all tracked files (skip staging menu)
+# Auto-group files into commits with auto-accepted messages (no prompts)
 cmint -a
 
 # Skip AI, provide your own message
@@ -64,7 +64,7 @@ If no `GROQ_API_KEY` is set in `~/.commit-mint` or `$GROQ_API_KEY`, you'll be pr
 
 When you have multiple changed files, commit-mint shows an interactive staging menu:
 
-- **Stage all files** — auto-stage everything (same as `cmint -a`)
+- **Stage all files** — auto-stage everything
 - **Select files** — multi-select specific files to stage
 - **Auto-group into commits** — AI groups files into logical commits (see below)
 - **Cancel**
@@ -82,7 +82,7 @@ The auto-group feature uses AI to analyze your changed files and group them into
 4. Hook failures show the recovery menu per-group
 ```
 
-Select "Auto-group into commits" from the staging menu, or it's automatically available when you have multiple changed files.
+Select "Auto-group into commits" from the staging menu, or use `cmint --auto` / `cmint -a` to auto-group and auto-accept all commit messages with no prompts.
 
 ### Message review
 
@@ -175,7 +175,7 @@ cmint --help
 
   Options:
     --retry, -r      Retry the last failed commit (default: false)
-    --all, -a        Auto-stage all tracked files (default: false)
+    --auto, -a       Auto-group files into commits, accept all messages (default: false)
     --message, -m    Provide a commit message directly (skip AI generation)
     --hint, -H       Add context hint for AI commit message generation
     --review, -R     Review staged changes with a coding model (default: false)
