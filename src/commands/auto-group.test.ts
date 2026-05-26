@@ -103,7 +103,7 @@ describe("runAutoGroupFlow loop control", () => {
 		{ status: "M", path: "src/b.ts", staged: true },
 	];
 
-	const flags: CommitFlags = { retry: false, all: false };
+	const flags: CommitFlags = { retry: false, auto: false };
 
 	const twoGroups = [
 		{ name: "Group 1", description: "desc", files: ["src/a.ts"] },

@@ -22,7 +22,7 @@ import { debug } from "../utils/debug.js";
 
 export interface CommitFlags {
 	retry: boolean;
-	all: boolean;
+	auto: boolean;
 	message?: string;
 	hint?: string;
 }
@@ -70,11 +70,15 @@ export async function runAutoGroupFlow(
 	const validatedGroups = validateGroups(result.groups, included);
 	s.stop("Files analyzed");
 
-	// Step 4: Show grouping confirmation
-	const confirmed = await showGroupingConfirmation(validatedGroups, excluded);
-	if (!confirmed) {
-		outro(dim("Cancelled."));
-		return "cancelled";
+	// Step 4: Show grouping confirmation (skip in auto mode)
+	if (flags.auto) {
+		debug("Auto mode: skipping grouping confirmation");
+	} else {
+		const confirmed = await showGroupingConfirmation(validatedGroups, excluded);
+		if (!confirmed) {
+			outro(dim("Cancelled."));
+			return "cancelled";
+		}
 	}
 
 	// Step 5: Sequential multi-commit loop
@@ -105,13 +109,17 @@ export async function runAutoGroupFlow(
 		}
 		s.stop("Message generated");
 
-		// Review message
-		const reviewed = await reviewCommitMessage(message);
-		if (reviewed === null) {
-			outro(dim("Cancelled."));
-			return "cancelled";
+		// Review message (skip in auto mode)
+		if (flags.auto) {
+			debug("Auto mode: accepting generated message");
+		} else {
+			const reviewed = await reviewCommitMessage(message);
+			if (reviewed === null) {
+				outro(dim("Cancelled."));
+				return "cancelled";
+			}
+			message = reviewed;
 		}
-		message = reviewed;
 
 		// Cache message
 		const { getRepoRoot } = await import("../services/git.js");

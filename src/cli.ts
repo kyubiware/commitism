@@ -21,9 +21,9 @@ cli(
 				alias: "r",
 				default: false,
 			},
-			all: {
+			auto: {
 				type: Boolean,
-				description: "Auto-stage all tracked files",
+				description: "Auto-group files into commits and accept messages (no prompts)",
 				alias: "a",
 				default: false,
 			},

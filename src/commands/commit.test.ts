@@ -119,7 +119,7 @@ describe("commitCommand", () => {
 		);
 
 		// Should NOT throw — errors should be caught and handled gracefully
-		await expect(commitCommand({ retry: false, all: false })).resolves.not.toThrow();
+		await expect(commitCommand({ retry: false, auto: false })).resolves.not.toThrow();
 	});
 
 	it("prompts for API key when missing, saves it, then continues", async () => {
@@ -143,7 +143,7 @@ describe("commitCommand", () => {
 		vi.mocked(attemptCommit).mockResolvedValue({ ok: true });
 		vi.mocked(getHead).mockResolvedValueOnce("abc123").mockResolvedValueOnce("abc123");
 
-		await commitCommand({ retry: false, all: false });
+		await commitCommand({ retry: false, auto: false });
 
 		// Should have prompted for the key
 		expect(text).toHaveBeenCalledWith(
@@ -175,7 +175,7 @@ describe("commitCommand", () => {
 		vi.mocked(attemptCommit).mockResolvedValue({ ok: true });
 		vi.mocked(getHead).mockResolvedValueOnce("abc123").mockResolvedValueOnce("def456");
 
-		await commitCommand({ retry: false, all: false, hint: "refactor auth" });
+		await commitCommand({ retry: false, auto: false, hint: "refactor auth" });
 
 		expect(generateCommitMessage).toHaveBeenCalledWith("some diff content", {
 			apiKey: "gsk_test_key",
@@ -204,7 +204,7 @@ describe("commitCommand", () => {
 		});
 		vi.mocked(generateCommitMessage).mockRejectedValue(new Error("Groq API error: rate limit"));
 
-		await expect(commitCommand({ retry: false, all: false })).resolves.not.toThrow();
+		await expect(commitCommand({ retry: false, auto: false })).resolves.not.toThrow();
 
 		const { outro } = await import("@clack/prompts");
 		expect(vi.mocked(outro)).toHaveBeenCalledWith(expect.stringContaining("rate limit"));
@@ -223,7 +223,7 @@ describe("commitCommand", () => {
 		vi.mocked(attemptCommit).mockResolvedValue({ ok: true });
 		vi.mocked(getHead).mockResolvedValueOnce("abc123").mockResolvedValueOnce("def456");
 
-		await commitCommand({ retry: false, all: false });
+		await commitCommand({ retry: false, auto: false });
 
 		// Should NOT call AI — message is hardcoded
 		expect(generateCommitMessage).not.toHaveBeenCalled();
@@ -233,7 +233,7 @@ describe("commitCommand", () => {
 		expect(saveCachedCommit).toHaveBeenCalledWith("/tmp/test-repo", "chore: update lockfile");
 	});
 
-	it("shows staging menu when multiple files changed and --all is not set", async () => {
+	it("shows staging menu when multiple files changed and --auto is not set", async () => {
 		vi.mocked(getStatusShort).mockResolvedValue("M  src/foo.ts\n?? src/bar.ts");
 		vi.mocked(getChangedFiles).mockResolvedValue([
 			{ status: "M", path: "src/foo.ts", staged: true },
@@ -259,7 +259,7 @@ describe("commitCommand", () => {
 		vi.mocked(attemptCommit).mockResolvedValue({ ok: true });
 		vi.mocked(getHead).mockResolvedValueOnce("abc123").mockResolvedValueOnce("def456");
 
-		await commitCommand({ retry: false, all: false });
+		await commitCommand({ retry: false, auto: false });
 
 		expect(showStagingMenu).toHaveBeenCalledWith(
 			[

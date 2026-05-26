@@ -95,11 +95,17 @@ export async function commitCommand(flags: CommitFlags) {
 	const s = spinner();
 
 	try {
-		if (flags.all) {
-			// --all flag: auto-stage everything (original behavior)
-			s.start("Staging all changes...");
-			await stageAll();
-			s.stop("Changes staged");
+		if (flags.auto) {
+			// --auto flag: auto-group with auto-accept, skip all menus
+			if (flags.message) {
+				outro(red("--message flag is not compatible with auto-group mode."));
+				return;
+			}
+			const agResult = await runAutoGroupFlow(changedFiles, flags);
+			if (agResult !== "committed") {
+				process.exit(1);
+			}
+			return;
 		} else if (changedFiles.length === 1) {
 			// Single file: auto-stage it
 			s.start(`Staging ${changedFiles[0].path}...`);
