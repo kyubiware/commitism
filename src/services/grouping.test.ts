@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChangedFile } from "./git.js";
-import { filterExcludedFiles } from "./grouping.js";
+import { buildGroupingSystemPrompt, filterExcludedFiles } from "./grouping.js";
 
 describe("filterExcludedFiles", () => {
 	it("includes package-lock.json when package.json is present", () => {
@@ -69,5 +69,18 @@ describe("filterExcludedFiles", () => {
 		expect(included).toHaveLength(1);
 		expect(excluded).toContain("vendor.min.js");
 		expect(excluded).toContain("debug.log");
+	});
+});
+
+describe("buildGroupingSystemPrompt", () => {
+	it("includes a rule to separate documentation from code", () => {
+		const prompt = buildGroupingSystemPrompt();
+		expect(prompt).toContain("documentation");
+		expect(prompt).toMatch(/separate.*doc/i);
+	});
+
+	it("includes rule to keep related files together", () => {
+		const prompt = buildGroupingSystemPrompt();
+		expect(prompt).toContain("Keep related files together");
 	});
 });

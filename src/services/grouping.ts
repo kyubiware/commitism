@@ -114,6 +114,7 @@ export function buildGroupingSystemPrompt(): string {
 		"Rules:",
 		"- Group by feature, fix, or concern (e.g., 'Frontend refactor', 'API changes', 'Test updates')",
 		"- Keep related files together (e.g., a component + its test, a model + its migration)",
+		"- Separate documentation changes (*.md files, docs/) from code changes — put docs in their own group",
 		"- Do not split a single logical change across multiple groups",
 		"- If a file does not clearly belong to any group, include it anyway — do not omit files",
 		"",
