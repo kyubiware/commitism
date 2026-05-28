@@ -108,6 +108,7 @@ export async function runAutoGroupFlow(
 			return "cancelled";
 		}
 		s.stop("Message generated");
+		log.info(dim(message));
 
 		// Review message (skip in auto mode)
 		if (flags.auto) {
