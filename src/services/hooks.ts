@@ -134,12 +134,28 @@ function parseTestErrors(output: string): HookError[] {
 
 function parseEslintErrors(output: string): HookError[] {
 	const errors: HookError[] = [];
-	for (const match of output.matchAll(/^\s*\d+:(\d+)\s+(error|warning)\s+(.+?)\s+(.+?)$/gm)) {
-		errors.push({
-			tool: "eslint",
-			message: `${match[2]}: ${match[3]} (${match[4]})`,
-			raw: match[0],
-		});
+	const lines = output.split("\n");
+	let currentFile = "";
+
+	for (const line of lines) {
+		// ESLint file path line: not indented, contains a path separator
+		if (!/^\s/.test(line) && line.includes("/")) {
+			currentFile = line.trim();
+			continue;
+		}
+
+		// ESLint error/warning detail: <line>:<col>  <severity>  <message>  <rule>
+		// Message and rule are separated by 2+ spaces
+		const match = line.match(/^\s*(\d+):(\d+)\s+(error|warning)\s+(.+)\s{2,}(\S+)\s*$/);
+		if (match) {
+			const [, lineNum, col, severity, message, rule] = match;
+			const file = currentFile || "unknown";
+			errors.push({
+				tool: "eslint",
+				message: `${file}:${lineNum}:${col} ${severity}: ${message} (${rule})`,
+				raw: line.trim(),
+			});
+		}
 	}
 
 	return errors;
