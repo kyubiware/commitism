@@ -13,6 +13,7 @@ import {
 	stageFiles,
 } from "../services/git.js";
 import { filterExcludedFiles, generateGroups, validateGroups } from "../services/grouping.js";
+import { createProgressHandler } from "../services/hook-progress.js";
 import { parseHookErrors, parseToolChecks } from "../services/hooks.js";
 import { showGroupingConfirmation, showGroupProgress } from "../ui/grouping.js";
 import { type RecoveryResult, showRecoveryMenu } from "../ui/menu.js";
@@ -128,9 +129,9 @@ export async function runAutoGroupFlow(
 		await saveCachedCommit(repoRoot, message);
 
 		// Attempt commit
-		s.start("Committing...");
+		s.start("Running pre-commit hooks...");
 		const headBefore = await getHead();
-		const commitResult = await attemptCommit(message);
+		const commitResult = await attemptCommit(message, [], createProgressHandler(s));
 		const headAfter = await getHead();
 
 		if (commitResult.ok || headBefore !== headAfter) {

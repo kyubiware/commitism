@@ -12,6 +12,7 @@ import {
 	stageAll,
 	stageFiles,
 } from "../services/git.js";
+import { createProgressHandler } from "../services/hook-progress.js";
 import { parseHookErrors, parseToolChecks } from "../services/hooks.js";
 import { hasLintStagedConfig, runLintStaged } from "../services/lint-staged.js";
 import { showRecoveryMenu, showStagingMenu } from "../ui/menu.js";
@@ -46,8 +47,8 @@ export async function commitCommand(flags: CommitFlags) {
 		debug("Loaded cached message:", cached.message);
 		intro("commit-mint — retry");
 		const s = spinner();
-		s.start("Retrying commit...");
-		const result = await attemptCommit(cached.message);
+		s.start("Running pre-commit hooks...");
+		const result = await attemptCommit(cached.message, [], createProgressHandler(s));
 		s.stop("Attempted commit");
 		debug("Retry commit result:", result);
 		if (result.ok) {
@@ -202,9 +203,9 @@ export async function commitCommand(flags: CommitFlags) {
 		const repoRoot = await getRepoRoot();
 		await saveCachedCommit(repoRoot, message);
 
-		s.start("Committing...");
+		s.start("Running pre-commit hooks...");
 		const headBefore = await getHead();
-		const result = await attemptCommit(message);
+		const result = await attemptCommit(message, [], createProgressHandler(s));
 		const headAfter = await getHead();
 
 		if (result.ok || headBefore !== headAfter) {
@@ -294,10 +295,10 @@ export async function commitCommand(flags: CommitFlags) {
 	debug("Message cached for repo:", repoRoot);
 
 	// Attempt commit
-	s.start("Committing...");
+	s.start("Running pre-commit hooks...");
 	const headBefore = await getHead();
 	debug("HEAD before commit:", headBefore);
-	const result = await attemptCommit(message);
+	const result = await attemptCommit(message, [], createProgressHandler(s));
 	const headAfter = await getHead();
 	debug("HEAD after commit:", headAfter);
 	debug("Commit result:", result);

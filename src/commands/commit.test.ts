@@ -73,6 +73,10 @@ vi.mock("../services/ai.js", () => ({
 	generateCommitMessage: vi.fn(),
 }));
 
+vi.mock("../services/hook-progress.js", () => ({
+	createProgressHandler: vi.fn(() => vi.fn()),
+}));
+
 vi.mock("../services/clipboard.js", () => ({
 	copyToClipboard: vi.fn(),
 }));
@@ -228,7 +232,7 @@ describe("commitCommand", () => {
 		// Should NOT call AI — message is hardcoded
 		expect(generateCommitMessage).not.toHaveBeenCalled();
 		// Should commit with a lockfile-specific message
-		expect(attemptCommit).toHaveBeenCalledWith("chore: update lockfile");
+		expect(attemptCommit).toHaveBeenCalledWith("chore: update lockfile", [], expect.any(Function));
 		// Should cache the message
 		expect(saveCachedCommit).toHaveBeenCalledWith("/tmp/test-repo", "chore: update lockfile");
 	});
