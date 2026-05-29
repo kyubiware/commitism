@@ -193,8 +193,9 @@ describe("parseHookErrors", () => {
 				].join("\n") + eslintFooter;
 
 			const errors = parseHookErrors(stderr);
-			const eslintError = errors.find((e) => e.tool === "eslint")!;
+			const eslintError = errors.find((e) => e.tool === "eslint");
 			expect(eslintError).toBeDefined();
+			if (!eslintError) return;
 			expect(eslintError.message).toContain("Modal.tsx:278:1");
 			expect(eslintError.message).toContain("warning");
 			expect(eslintError.message).toContain(
@@ -213,8 +214,9 @@ describe("parseHookErrors", () => {
 			].join("\n");
 
 			const errors = parseHookErrors(stderr);
-			const eslintError = errors.find((e) => e.tool === "eslint")!;
+			const eslintError = errors.find((e) => e.tool === "eslint");
 			expect(eslintError).toBeDefined();
+			if (!eslintError) return;
 			expect(eslintError.message).toContain("helpers.ts:10:5");
 			expect(eslintError.message).toContain("error");
 			expect(eslintError.message).toContain("Unexpected var, use let or const instead");
@@ -262,8 +264,9 @@ describe("parseHookErrors", () => {
 			const stderr = "  5:1  error  Missing semicolon  semi\nESLint found errors.";
 
 			const errors = parseHookErrors(stderr);
-			const eslintError = errors.find((e) => e.tool === "eslint")!;
+			const eslintError = errors.find((e) => e.tool === "eslint");
 			expect(eslintError).toBeDefined();
+			if (!eslintError) return;
 			expect(eslintError.message).toContain("unknown:5:1");
 		});
 
@@ -273,8 +276,9 @@ describe("parseHookErrors", () => {
 				eslintFooter;
 
 			const errors = parseHookErrors(stderr);
-			const eslintError = errors.find((e) => e.tool === "eslint")!;
+			const eslintError = errors.find((e) => e.tool === "eslint");
 			expect(eslintError).toBeDefined();
+			if (!eslintError) return;
 			expect(eslintError.message).toContain("Strings must use singlequote");
 			expect(eslintError.message).toContain("(quotes)");
 		});
@@ -303,8 +307,9 @@ describe("parseHookErrors", () => {
 			const lintStagedErrors = errors.filter((e) => e.tool === "lint-staged");
 			expect(lintStagedErrors.length).toBeGreaterThanOrEqual(1);
 
-			const eslintError = errors.find((e) => e.tool === "eslint")!;
+			const eslintError = errors.find((e) => e.tool === "eslint");
 			expect(eslintError).toBeDefined();
+			if (!eslintError) return;
 			expect(eslintError.message).toContain("Modal.tsx:278:1");
 			expect(eslintError.message).toContain(
 				"warning: File has too many lines (292). Maximum allowed is 277",
