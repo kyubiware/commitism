@@ -36,10 +36,31 @@ vi.mock("../services/hooks.js", () => ({
 	 * - direct invocation -> first token
 	 */
 	extractToolName: vi.fn((cmd: string) => {
-		const tokens = cmd.split(/\s+/);
+		// Unwrap sh -c '...'
+		const quoted = cmd.match(/^(?:sh|bash|zsh)\s+-c\s+(['"])([\s\S]*)\1$/);
+		if (quoted) cmd = quoted[2];
+		else {
+			const bare = cmd.match(/^(?:sh|bash|zsh)\s+-c\s+(\S+)$/);
+			if (bare) cmd = bare[1];
+		}
+		// Find meaningful segment in && chain
+		const segments = cmd
+			.split(/\s*&&\s*/)
+			.map((s: string) => s.trim())
+			.filter(Boolean);
+		let meaningful = segments[segments.length - 1] || cmd;
+		for (const seg of segments) {
+			if (/^cd\s/.test(seg)) continue;
+			meaningful = seg;
+			break;
+		}
+		const tokens = meaningful.split(/\s+/);
 		const first = tokens[0];
+		if (first === "sh" || first === "bash" || first === "zsh") return null;
 		if (["npm", "yarn", "pnpm", "bun"].includes(first)) {
-			const scriptIdx = tokens[1] === "run" ? 2 : 1;
+			const sub = tokens[1];
+			if (sub === "exec") return tokens[2] ?? null;
+			const scriptIdx = sub === "run" ? 2 : 1;
 			const script = tokens[scriptIdx];
 			if (!script) return null;
 			const scriptMap: Record<string, string> = {
@@ -50,6 +71,11 @@ vi.mock("../services/hooks.js", () => ({
 			return scriptMap[script] ?? script;
 		}
 		if (first === "npx") return tokens[1] ?? null;
+		if (first === "uv") {
+			if (tokens[1] === "run") return tokens[2] ?? null;
+			if (tokens[1] === "tool" && tokens[2] === "run") return tokens[3] ?? null;
+			return null;
+		}
 		return first;
 	}),
 }));

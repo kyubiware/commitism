@@ -211,27 +211,87 @@ export function isLintStagedMeta(command: string): boolean {
 
 /** Extract a display-friendly tool name from a lint-staged command */
 export function extractToolName(command: string): string | null {
-	const tokens = command.split(/\s+/);
+	// Step 1: Unwrap sh -c '...' wrapper
+	const unwrapped = unwrapShC(command);
+	if (unwrapped !== null) command = unwrapped;
+
+	// Step 2: Find the meaningful command in a && chain (skip cd segments)
+	command = findMeaningfulCommand(command);
+
+	return parseToolFromTokens(command.split(/\s+/));
+}
+
+/** Map common script names to their underlying tool */
+const SCRIPT_MAP: Record<string, string> = {
+	typecheck: "tsc",
+	lint: "eslint",
+	format: "prettier",
+};
+
+/** Package managers that use [run|exec] <script|tool> pattern */
+const PKG_MANAGERS = ["npm", "yarn", "pnpm", "bun"];
+
+/** Parse tool name from a tokenized command */
+function parseToolFromTokens(tokens: string[]): string | null {
 	const first = tokens[0];
 
-	// npm/yarn/pnpm run <script>
-	if (["npm", "yarn", "pnpm", "bun"].includes(first)) {
-		// Skip "run" if present
-		const scriptIdx = tokens[1] === "run" ? 2 : 1;
-		const script = tokens[scriptIdx];
-		if (!script) return null;
-		// Map common script names to their underlying tool
-		const scriptMap: Record<string, string> = {
-			typecheck: "tsc",
-			lint: "eslint",
-			format: "prettier",
-		};
-		return scriptMap[script] ?? script;
+	// Safety: don't return the shell itself as a tool name
+	if (first === "sh" || first === "bash" || first === "zsh") return null;
+
+	// npm/yarn/pnpm/bun [run|exec] <script/tool>
+	if (PKG_MANAGERS.includes(first)) {
+		return parsePackageManagerTool(tokens);
 	}
 
 	// npx <tool>
 	if (first === "npx") return tokens[1] ?? null;
 
+	// uv run <tool> / uv tool run <tool>
+	if (first === "uv") return parseUvTool(tokens);
+
 	// Direct tool invocation (biome, eslint, tsc, vitest, jest, prettier)
 	return first;
+}
+
+/** Extract tool name from npm/yarn/pnpm/bun commands */
+function parsePackageManagerTool(tokens: string[]): string | null {
+	const sub = tokens[1];
+	// pnpm exec <tool>
+	if (sub === "exec") return tokens[2] ?? null;
+	// npm/yarn/pnpm [run] <script>
+	const scriptIdx = sub === "run" ? 2 : 1;
+	const script = tokens[scriptIdx];
+	if (!script) return null;
+	return SCRIPT_MAP[script] ?? script;
+}
+
+/** Extract tool name from uv commands */
+function parseUvTool(tokens: string[]): string | null {
+	if (tokens[1] === "run") return tokens[2] ?? null;
+	if (tokens[1] === "tool" && tokens[2] === "run") return tokens[3] ?? null;
+	return null;
+}
+
+/** Unwrap sh -c 'command' or sh -c "command" wrappers */
+function unwrapShC(command: string): string | null {
+	// sh/bash -c 'body' or sh/bash -c "body"
+	const quoted = command.match(/^(?:sh|bash|zsh)\s+-c\s+(['"])([\s\S]*)\1$/);
+	if (quoted) return quoted[2];
+	// sh/bash -c body (no quotes, single word — rare)
+	const bare = command.match(/^(?:sh|bash|zsh)\s+-c\s+(\S+)$/);
+	if (bare) return bare[1];
+	return null;
+}
+
+/** Find the meaningful command in a && chain, skipping cd segments */
+function findMeaningfulCommand(command: string): string {
+	const segments = command
+		.split(/\s*&&\s*/)
+		.map((s) => s.trim())
+		.filter(Boolean);
+	for (const seg of segments) {
+		if (/^cd\s/.test(seg)) continue;
+		return seg;
+	}
+	return segments[segments.length - 1] || command;
 }
