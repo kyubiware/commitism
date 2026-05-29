@@ -1,5 +1,4 @@
-import { log, type SpinnerResult } from "@clack/prompts";
-import { cyan, green, red } from "kolorist";
+import type { SpinnerResult } from "@clack/prompts";
 import { extractToolName, isLintStagedMeta } from "./hooks.js";
 
 export interface HookStep {
@@ -37,11 +36,10 @@ export function createStderrParser(): (chunk: string) => HookStep[] {
 export function createProgressHandler(s: SpinnerResult): ProgressHandler {
 	return (step: HookStep) => {
 		if (step.status === "started") {
-			s.message(`${cyan("▸")} ${step.command}`);
-		} else if (step.status === "completed") {
-			log.message(`  ${green("✓")} ${step.command}`, { symbol: "" });
+			s.message(step.command);
 		} else if (step.status === "failed") {
-			log.message(`  ${red("✗")} ${step.command}`, { symbol: "" });
+			s.message(step.command);
 		}
+		// completed: no action — post-commit parseToolChecks summary handles display
 	};
 }

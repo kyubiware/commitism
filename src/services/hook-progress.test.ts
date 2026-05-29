@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createProgressHandler, createStderrParser, type HookStep } from "./hook-progress.js";
 
 // Mock @clack/prompts
-vi.mock("@clack/prompts", () => ({
-	log: { message: vi.fn() },
-}));
+vi.mock("@clack/prompts", () => ({}));
 
 // Mock hooks with realistic but isolated implementations
 vi.mock("../services/hooks.js", () => ({
@@ -149,30 +147,16 @@ describe("createProgressHandler", () => {
 
 		handler({ status: "started", command: "biome check", tool: "biome" });
 
-		expect(mockMessage).toHaveBeenCalledWith(expect.stringContaining("▸ biome check"));
+		expect(mockMessage).toHaveBeenCalledWith("biome check");
 	});
 
-	it("calls log.message on completed step", async () => {
-		const { log } = await import("@clack/prompts");
-		const s = { message: vi.fn() } as unknown as SpinnerResult;
-		const handler = createProgressHandler(s);
-
-		handler({ status: "completed", command: "biome check", tool: "biome" });
-
-		expect(log.message).toHaveBeenCalledWith(expect.stringContaining("✓ biome check"), {
-			symbol: "",
-		});
-	});
-
-	it("calls log.message on failed step", async () => {
-		const { log } = await import("@clack/prompts");
-		const s = { message: vi.fn() } as unknown as SpinnerResult;
+	it("updates spinner message on failed step", () => {
+		const mockMessage = vi.fn();
+		const s = { message: mockMessage } as unknown as SpinnerResult;
 		const handler = createProgressHandler(s);
 
 		handler({ status: "failed", command: "eslint --fix", tool: "eslint" });
 
-		expect(log.message).toHaveBeenCalledWith(expect.stringContaining("✗ eslint --fix"), {
-			symbol: "",
-		});
+		expect(mockMessage).toHaveBeenCalledWith("eslint --fix");
 	});
 });
