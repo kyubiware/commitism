@@ -19,6 +19,30 @@ vi.mock("../utils/debug.js", () => ({
 	debug: vi.fn(),
 }));
 
+// Mock hook-progress (createStderrParser returns parser that detects [STARTED]/[COMPLETED]/[FAILED] lines)
+vi.mock("../services/hook-progress.js", () => ({
+	createStderrParser: vi.fn(() => {
+		let buffer = "";
+		return (chunk: string) => {
+			buffer += chunk;
+			const steps: Array<{ status: string; command: string; tool: string }> = [];
+			const lines = buffer.split("\n");
+			buffer = lines.pop() ?? "";
+			for (const line of lines) {
+				const match = line.match(/\[(STARTED|COMPLETED|FAILED)\]\s+(.+)/);
+				if (match) {
+					steps.push({
+						status: match[1].toLowerCase(),
+						command: match[2].trim(),
+						tool: match[2].trim().split(" ")[0],
+					});
+				}
+			}
+			return steps;
+		};
+	}),
+}));
+
 // Capture stderr output
 const stderrChunks: string[] = [];
 const originalStderrWrite = process.stderr.write.bind(process.stderr);
@@ -128,6 +152,44 @@ describe("attemptCommit", () => {
 
 		expect(mockExeca).toHaveBeenCalledWith("git", ["commit", "-m", "feat: test", "--no-verify"]);
 	});
+
+	it("fires onProgress callback for STARTED lines", async () => {
+		const stderrLines = ["[STARTED] biome check --write", "[COMPLETED] biome check --write"];
+		mockExeca.mockReturnValue(createMockSubprocess({ stderrLines }));
+
+		const onProgress = vi.fn();
+		await attemptCommit("feat: test", [], onProgress);
+
+		expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "started" }));
+	});
+
+	it("fires onProgress callback for COMPLETED lines", async () => {
+		const stderrLines = ["[STARTED] biome check --write", "[COMPLETED] biome check --write"];
+		mockExeca.mockReturnValue(createMockSubprocess({ stderrLines }));
+
+		const onProgress = vi.fn();
+		await attemptCommit("feat: test", [], onProgress);
+
+		expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "completed" }));
+	});
+
+	it("fires onProgress callback for FAILED lines", async () => {
+		const stderrLines = ["[STARTED] eslint", "[FAILED] eslint"];
+		mockExeca.mockReturnValue(createMockSubprocess({ stderrLines }));
+
+		const onProgress = vi.fn();
+		await attemptCommit("feat: test", [], onProgress);
+
+		expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
+	});
+
+	it("works without onProgress callback (backward compat)", async () => {
+		mockExeca.mockReturnValue(createMockSubprocess({ stderrLines: [] }));
+
+		const result = await attemptCommit("feat: test");
+
+		expect(result.ok).toBe(true);
+	});
 });
 
 describe("attemptCommitNoVerify", () => {
@@ -143,6 +205,17 @@ describe("attemptCommitNoVerify", () => {
 			"feat: bypass hooks",
 			"--no-verify",
 		]);
+	});
+
+	it("passes onProgress through to attemptCommit", async () => {
+		const stderrLines = ["[STARTED] biome check --write", "[COMPLETED] biome check --write"];
+		mockExeca.mockReturnValue(createMockSubprocess({ stderrLines }));
+
+		const onProgress = vi.fn();
+		await attemptCommitNoVerify("feat: test", onProgress);
+
+		expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({ status: "started" }));
+		expect(mockExeca).toHaveBeenCalledWith("git", ["commit", "-m", "feat: test", "--no-verify"]);
 	});
 });
 

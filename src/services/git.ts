@@ -1,6 +1,7 @@
 import type { ExecaError } from "execa";
 import { execa } from "execa";
 import { debug } from "../utils/debug.js";
+import { createStderrParser, type ProgressHandler } from "./hook-progress.js";
 
 export class KnownError extends Error {}
 
@@ -147,16 +148,23 @@ export interface CommitResult {
 export async function attemptCommit(
 	message: string,
 	extraArgs: string[] = [],
+	onProgress?: ProgressHandler,
 ): Promise<CommitResult> {
 	debug("attemptCommit:", message, extraArgs.length ? extraArgs : "(no extra args)");
 	try {
 		const subprocess = execa("git", ["commit", "-m", message, ...extraArgs]);
 
 		// Collect hook output (lint-staged, biome, etc.) for post-commit display
-		// We don't stream to the terminal — the success/failure result is enough
 		const stderrChunks: string[] = [];
+		const parser = onProgress ? createStderrParser() : null;
 		subprocess.stderr?.on("data", (chunk: Buffer) => {
-			stderrChunks.push(chunk.toString());
+			const text = chunk.toString();
+			stderrChunks.push(text);
+			if (parser && onProgress) {
+				for (const step of parser(text)) {
+					onProgress(step);
+				}
+			}
 		});
 
 		await subprocess;
@@ -173,7 +181,10 @@ export async function attemptCommit(
 	}
 }
 
-export async function attemptCommitNoVerify(message: string): Promise<CommitResult> {
+export async function attemptCommitNoVerify(
+	message: string,
+	onProgress?: ProgressHandler,
+): Promise<CommitResult> {
 	debug("attemptCommitNoVerify:", message);
-	return attemptCommit(message, ["--no-verify"]);
+	return attemptCommit(message, ["--no-verify"], onProgress);
 }

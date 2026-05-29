@@ -190,7 +190,7 @@ export function parseToolChecks(stderr: string): ToolCheck[] {
 }
 
 /** Heuristic: skip lint-staged internal metadata lines */
-function isLintStagedMeta(command: string): boolean {
+export function isLintStagedMeta(command: string): boolean {
 	// Glob patterns in task labels
 	if (/[*{}[\]]/.test(command)) return true;
 	// Task count labels: "src/ — 3 files", "src/ — no files"
@@ -210,7 +210,7 @@ function isLintStagedMeta(command: string): boolean {
 }
 
 /** Extract a display-friendly tool name from a lint-staged command */
-function extractToolName(command: string): string | null {
+export function extractToolName(command: string): string | null {
 	const tokens = command.split(/\s+/);
 	const first = tokens[0];
 
