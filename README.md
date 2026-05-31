@@ -1,5 +1,7 @@
 # commit-mint
 
+[![npm version](https://img.shields.io/npm/v/@kyubiware/commit-mint.svg)](https://www.npmjs.com/package/@kyubiware/commit-mint)
+
 > commit-mint groups changed files into individual commits, generates commit messages, and cleanly handles commit hook failures. It wraps the entire commit lifecycle — stage, generate, review, attempt, recover, retry — so you never lose a message or stare at raw hook output again.
 
 ## Quick Start
